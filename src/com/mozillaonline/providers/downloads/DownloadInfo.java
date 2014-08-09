@@ -463,9 +463,10 @@ public class DownloadInfo {
             mContext.getContentResolver().update(getAllDownloadsUri(), values, null, null);
             return;
         }
-        DownloadThread downloader = new DownloadThread(mContext, mSystemFacade, this);
+        DownloadTask downloader = new DownloadTask(mContext, mSystemFacade, this);
         mHasActiveThread = true;
-        mSystemFacade.startThread(downloader);
+//        mSystemFacade.startThread(downloader);
+        mSystemFacade.runOnThreadPool(downloader);
     }
 
     public Uri getMyDownloadsUri() {
