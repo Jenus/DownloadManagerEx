@@ -16,6 +16,7 @@
 
 package com.mozillaonline.providers.downloads;
 
+import android.os.Environment;
 import android.util.Config;
 import android.util.Log;
 
@@ -24,6 +25,68 @@ import android.util.Log;
  * As a general rule, modifying these constants should be done with care.
  */
 public class Constants {
+	
+    /**
+     * DownloadProvider authority
+     */
+    public static final String AUTHORITY = "com.mozillaonline.downloads";
+   
+    /**
+     * The permission to access the download manager
+     */
+    public static final String PERMISSION_ACCESS = "com.mozillaonline.permission.ACCESS_DOWNLOAD_MANAGER";
+
+    /**
+     * The permission to access the download manager's advanced functions
+     */
+    public static final String PERMISSION_ACCESS_ADVANCED = "com.mozillaonline.permission.ACCESS_DOWNLOAD_MANAGER_ADVANCED";
+
+    /**
+     * The permission to access the all the downloads in the manager.
+     */
+    public static final String PERMISSION_ACCESS_ALL = "com.mozillaonline.permission.ACCESS_ALL_DOWNLOADS";
+
+    /**
+     * The permission to send broadcasts on download completion
+     */
+    public static final String PERMISSION_SEND_INTENTS = "com.mozillaonline.permission.SEND_DOWNLOAD_COMPLETED_INTENTS";
+
+    /**
+     * The permission to download files without any system notification being
+     * shown.
+     */
+    public static final String PERMISSION_NO_NOTIFICATION = "com.mozillaonline.permission.DOWNLOAD_WITHOUT_NOTIFICATION";
+
+	
+	/**
+	 * corePoolSize the number of threads to keep in the pool, even
+     * if they are idle, unless {@code allowCoreThreadTimeOut} is set
+	 */
+	public static final int CORE_POOL_SIZE = 1;
+	
+	/**
+	 * maximumPoolSize the maximum number of threads to allow in the pool
+	 */
+	public static final int MAXIMUM_POOL_SIZE = 10;
+	
+	/**
+	 * keepAliveTime when the number of threads is greater than
+     * the core, this is the maximum time that excess idle threads
+     * will wait for new tasks before terminating.
+	 */
+	public static final int KEEP_ALIVE = 1;
+	
+	/**
+	 * maximum work queue size wait to be download. 
+	 */
+	public static final int MAXIMUM_WORK_QUEUE_SIZE = 500;
+	
+	/**
+	 * external database path to store the download.db, if not set or set as empty string, 
+	 * <br>the database will be stored in <b>/data/data/[package name]/databases</b> folder
+	 * @see #USE_EXTERNAL_DB_PATH
+	 */
+	public static final String EXTERNAL_DB_PATH = "";
 
     /** Tag used for debugging/logging */
     public static final String TAG = "DownloadManager";
@@ -146,4 +209,5 @@ public class Constants {
     private static final boolean LOCAL_LOGVV = false;
     @SuppressWarnings("unused")
     public static final boolean LOGVV = LOCAL_LOGVV && LOGV;
+//    public static final boolean LOGVV = BuildConfig.DEBUG;
 }

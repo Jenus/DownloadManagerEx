@@ -29,7 +29,7 @@ public final class Downloads implements BaseColumns {
     /**
      * DownloadProvider authority
      */
-    public static final String AUTHORITY = "com.mozillaonline.downloads";
+    public static final String AUTHORITY = Constants.AUTHORITY;
 
     /**
      * @hide
@@ -42,32 +42,32 @@ public final class Downloads implements BaseColumns {
      * 
      * @hide
      */
-    public static final String PERMISSION_ACCESS = "com.mozillaonline.permission.ACCESS_DOWNLOAD_MANAGER";
+    public static final String PERMISSION_ACCESS = Constants.PERMISSION_ACCESS;
 
     /**
      * The permission to access the download manager's advanced functions
      * 
      * @hide
      */
-    public static final String PERMISSION_ACCESS_ADVANCED = "com.mozillaonline.permission.ACCESS_DOWNLOAD_MANAGER_ADVANCED";
+    public static final String PERMISSION_ACCESS_ADVANCED = Constants.PERMISSION_ACCESS_ADVANCED;
 
     /**
      * The permission to access the all the downloads in the manager.
      */
-    public static final String PERMISSION_ACCESS_ALL = "com.mozillaonline.permission.ACCESS_ALL_DOWNLOADS";
+    public static final String PERMISSION_ACCESS_ALL = Constants.PERMISSION_ACCESS_ALL;
 
     /**
      * The permission to send broadcasts on download completion
      * 
      * @hide
      */
-    public static final String PERMISSION_SEND_INTENTS = "com.mozillaonline.permission.SEND_DOWNLOAD_COMPLETED_INTENTS";
+    public static final String PERMISSION_SEND_INTENTS = Constants.PERMISSION_SEND_INTENTS;
 
     /**
      * The permission to download files without any system notification being
      * shown.
      */
-    public static final String PERMISSION_NO_NOTIFICATION = "com.mozillaonline.permission.DOWNLOAD_WITHOUT_NOTIFICATION";
+    public static final String PERMISSION_NO_NOTIFICATION = Constants.PERMISSION_NO_NOTIFICATION;
 
     /**
      * The content:// URI for the data table in the provider
@@ -384,6 +384,19 @@ public final class Downloads implements BaseColumns {
      * @hide
      */
     public static final String COLUMN_CURRENT_BYTES = "current_bytes";
+    
+    /**
+     * The name of the column containing the speed of the file is downloading
+     * <P>
+     * Type: INTEGER
+     * </P>
+     * <P>
+     * Owner can Read
+     * </P>
+     * 
+     * @hide
+     */
+    public static final String COLUMN_SPEED = "download_speed";
 
     /**
      * The name of the column where the initiating application can provide the

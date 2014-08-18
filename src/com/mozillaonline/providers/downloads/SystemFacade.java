@@ -62,15 +62,19 @@ interface SystemFacade {
     public void cancelAllNotifications();
 
     /**
-     * @Deprecated use startRunna
+     * @Deprecated use {@link #runOnThreadPool(Runnable)}
      * Start a thread.
      */
     public void startThread(Thread thread);
     
     /**
      * post the runnable to the ThreadPool<br/>
-     * <b>Note:</b>you should instantiate and handle the ThreadPool in the subclass
      * @param runnable
      */
     public void runOnThreadPool(Runnable runnable);
+    
+    /**
+     * clear the thread pool
+     */
+    public void clearThreadPool();
 }

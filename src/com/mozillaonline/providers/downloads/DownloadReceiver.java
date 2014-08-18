@@ -18,8 +18,6 @@ package com.mozillaonline.providers.downloads;
 
 import java.io.File;
 
-import com.mozillaonline.providers.DownloadManager;
-
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ContentUris;
@@ -31,6 +29,8 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.util.Log;
+
+import com.mozillaonline.providers.DownloadManager;
 
 /**
  * Receives system broadcasts (boot, network connectivity)

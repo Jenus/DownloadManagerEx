@@ -20,9 +20,9 @@ import android.util.Log;
 
 class RealSystemFacade implements SystemFacade {
 	
-	private static final int CORE_POOL_SIZE = 4;
-	private static final int MAXIMUM_POOL_SIZE = 10;
-	private static final int KEEP_ALIVE = 1;
+	private static final int CORE_POOL_SIZE = Constants.CORE_POOL_SIZE;
+	private static final int MAXIMUM_POOL_SIZE = Constants.MAXIMUM_POOL_SIZE;
+	private static final int KEEP_ALIVE = Constants.KEEP_ALIVE;
 	
 	private Context mContext;
 	
@@ -42,7 +42,7 @@ class RealSystemFacade implements SystemFacade {
     };
 
     private static final BlockingQueue<Runnable> sPoolWorkQueue =
-            new LinkedBlockingQueue<Runnable>(10);
+            new LinkedBlockingQueue<Runnable>(Constants.MAXIMUM_WORK_QUEUE_SIZE);
 
     /**
      * An {@link Executor} that can be used to execute tasks in parallel.
@@ -147,4 +147,12 @@ class RealSystemFacade implements SystemFacade {
 	public void runOnThreadPool(Runnable command) {
 		sThreadPoolExecutor.execute(command);
 	}
+
+	@Override
+	public void clearThreadPool() {
+		synchronized (sPoolWorkQueue) {
+			sPoolWorkQueue.clear();
+		}
+	}
+	
 }

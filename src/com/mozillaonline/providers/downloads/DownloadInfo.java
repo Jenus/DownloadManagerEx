@@ -449,15 +449,14 @@ public class DownloadInfo {
         if (!isReadyToStart(now)) {
             return;
         }
-
         if (Constants.LOGV) {
             Log.v(Constants.TAG, "Service spawning thread to handle download " + mId);
         }
         if (mHasActiveThread) {
             throw new IllegalStateException("Multiple threads on same download");
         }
-        if (mStatus != Downloads.STATUS_RUNNING) {
-            mStatus = Downloads.STATUS_RUNNING;
+        if (mStatus != Downloads.STATUS_PENDING) {
+            mStatus = Downloads.STATUS_PENDING;
             ContentValues values = new ContentValues();
             values.put(Downloads.COLUMN_STATUS, mStatus);
             mContext.getContentResolver().update(getAllDownloadsUri(), values, null, null);

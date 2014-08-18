@@ -33,7 +33,6 @@ import org.apache.http.client.methods.HttpGet;
 import android.content.ContentValues;
 import android.content.Context;
 import android.net.http.AndroidHttpClient;
-import android.os.FileUtils;
 import android.os.PowerManager;
 import android.os.Process;
 import android.text.TextUtils;
@@ -84,6 +83,13 @@ public class DownloadTask implements Runnable {
 		public boolean mGotData = false;
 		public String mRequestUri;
 
+		 /** Historical bytes/second speed of this download. */
+        public long mSpeed;
+        /** Time when current sample started. */
+        public long mSpeedSampleStart;
+        /** Bytes transferred since current sample started. */
+        public long mSpeedSampleBytes;
+        
 		public State(DownloadInfo info) {
 			mMimeType = sanitizeMimeType(info.mMimeType);
 			mRequestUri = info.mUri;
@@ -142,6 +148,14 @@ public class DownloadTask implements Runnable {
 	 * Executes the download in a separate thread
 	 */
 	public void run() {
+		if (mInfo.mStatus != Downloads.STATUS_RUNNING) {
+			mInfo.mStatus = Downloads.STATUS_RUNNING;
+			ContentValues values = new ContentValues();
+			values.put(Downloads.COLUMN_STATUS, mInfo.mStatus);
+			mContext.getContentResolver().update(mInfo.getAllDownloadsUri(),
+					values, null, null);
+		}
+		 
 		Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
 
 		State state = new State(mInfo);
@@ -388,10 +402,27 @@ public class DownloadTask implements Runnable {
 	 */
 	private void reportProgress(State state, InnerState innerState) {
 		long now = mSystemFacade.currentTimeMillis();
+		
+		final long sampleDelta = now - state.mSpeedSampleStart;
+        if (sampleDelta > 500) {
+            final long sampleSpeed = ((innerState.mBytesSoFar - state.mSpeedSampleBytes) * 1000)
+                    / sampleDelta;
+
+            if (state.mSpeed == 0) {
+                state.mSpeed = sampleSpeed;
+            } else {
+                state.mSpeed = ((state.mSpeed * 3) + sampleSpeed) / 4;
+            }
+
+            state.mSpeedSampleStart = now;
+            state.mSpeedSampleBytes = innerState.mBytesSoFar;
+        }
+        
 		if (innerState.mBytesSoFar - innerState.mBytesNotified > Constants.MIN_PROGRESS_STEP
 				&& now - innerState.mTimeLastNotification > Constants.MIN_PROGRESS_TIME) {
 			ContentValues values = new ContentValues();
 			values.put(Downloads.COLUMN_CURRENT_BYTES, innerState.mBytesSoFar);
+			values.put(Downloads.COLUMN_SPEED, state.mSpeed);
 			mContext.getContentResolver().update(mInfo.getAllDownloadsUri(),
 					values, null, null);
 			innerState.mBytesNotified = innerState.mBytesSoFar;
