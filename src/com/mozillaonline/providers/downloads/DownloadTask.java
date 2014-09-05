@@ -33,6 +33,7 @@ import org.apache.http.client.methods.HttpGet;
 import android.content.ContentValues;
 import android.content.Context;
 import android.net.http.AndroidHttpClient;
+import android.os.Build;
 import android.os.PowerManager;
 import android.os.Process;
 import android.text.TextUtils;
@@ -83,13 +84,13 @@ public class DownloadTask implements Runnable {
 		public boolean mGotData = false;
 		public String mRequestUri;
 
-		 /** Historical bytes/second speed of this download. */
-        public long mSpeed;
-        /** Time when current sample started. */
-        public long mSpeedSampleStart;
-        /** Bytes transferred since current sample started. */
-        public long mSpeedSampleBytes;
-        
+		/** Historical bytes/second speed of this download. */
+		public long mSpeed;
+		/** Time when current sample started. */
+		public long mSpeedSampleStart;
+		/** Bytes transferred since current sample started. */
+		public long mSpeedSampleBytes;
+
 		public State(DownloadInfo info) {
 			mMimeType = sanitizeMimeType(info.mMimeType);
 			mRequestUri = info.mUri;
@@ -154,12 +155,16 @@ public class DownloadTask implements Runnable {
 			values.put(Downloads.COLUMN_STATUS, mInfo.mStatus);
 			mContext.getContentResolver().update(mInfo.getAllDownloadsUri(),
 					values, null, null);
+		} else {
+			if (Constants.LOGV) {
+				Log.v(Constants.TAG, "download status is: " + mInfo.mStatus);
+			}
 		}
-		 
+
 		Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
 
 		State state = new State(mInfo);
-		AndroidHttpClient client = null;
+		HttpStack client = null;
 		PowerManager.WakeLock wakeLock = null;
 		int finalStatus = Downloads.STATUS_UNKNOWN_ERROR;
 
@@ -174,7 +179,13 @@ public class DownloadTask implements Runnable {
 				Log.v(Constants.TAG, "initiating download for " + mInfo.mUri);
 			}
 
-			client = AndroidHttpClient.newInstance(userAgent(), mContext);
+			if (Build.VERSION.SDK_INT >= 9) {
+				client = new HurlStack();
+            } else {
+                // Prior to Gingerbread, HttpUrlConnection was unreliable.
+                // See: http://android-developers.blogspot.com/2011/09/androids-http-clients.html
+            	client = new HttpClientStack(AndroidHttpClient.newInstance(userAgent()));
+            }
 
 			boolean finished = false;
 			while (!finished) {
@@ -214,8 +225,13 @@ public class DownloadTask implements Runnable {
 				wakeLock = null;
 			}
 			if (client != null) {
-				client.close();
-				client = null;
+				try {
+					client.close();
+					client = null;
+				} catch (IOException e) {
+					e.printStackTrace();
+					finalStatus = Downloads.STATUS_UNKNOWN_ERROR;
+				}
 			}
 			cleanupDestination(state, finalStatus);
 			notifyDownloadCompleted(finalStatus, state.mCountRetry,
@@ -229,7 +245,7 @@ public class DownloadTask implements Runnable {
 	 * Fully execute a single download request - setup and send the request,
 	 * handle the response, and transfer the data to the destination file.
 	 */
-	private void executeDownload(State state, AndroidHttpClient client,
+	private void executeDownload(State state, HttpStack client,
 			HttpGet request) throws StopRequest, RetryDownload {
 		InnerState innerState = new InnerState();
 		byte data[] = new byte[Constants.BUFFER_SIZE];
@@ -402,22 +418,22 @@ public class DownloadTask implements Runnable {
 	 */
 	private void reportProgress(State state, InnerState innerState) {
 		long now = mSystemFacade.currentTimeMillis();
-		
+
 		final long sampleDelta = now - state.mSpeedSampleStart;
-        if (sampleDelta > 500) {
-            final long sampleSpeed = ((innerState.mBytesSoFar - state.mSpeedSampleBytes) * 1000)
-                    / sampleDelta;
+		if (sampleDelta > 500) {
+			final long sampleSpeed = ((innerState.mBytesSoFar - state.mSpeedSampleBytes) * 1000)
+					/ sampleDelta;
 
-            if (state.mSpeed == 0) {
-                state.mSpeed = sampleSpeed;
-            } else {
-                state.mSpeed = ((state.mSpeed * 3) + sampleSpeed) / 4;
-            }
+			if (state.mSpeed == 0) {
+				state.mSpeed = sampleSpeed;
+			} else {
+				state.mSpeed = ((state.mSpeed * 3) + sampleSpeed) / 4;
+			}
 
-            state.mSpeedSampleStart = now;
-            state.mSpeedSampleBytes = innerState.mBytesSoFar;
-        }
-        
+			state.mSpeedSampleStart = now;
+			state.mSpeedSampleBytes = innerState.mBytesSoFar;
+		}
+
 		if (innerState.mBytesSoFar - innerState.mBytesNotified > Constants.MIN_PROGRESS_STEP
 				&& now - innerState.mTimeLastNotification > Constants.MIN_PROGRESS_TIME) {
 			ContentValues values = new ContentValues();
@@ -810,10 +826,10 @@ public class DownloadTask implements Runnable {
 	/**
 	 * Send the request to the server, handling any I/O exceptions.
 	 */
-	private HttpResponse sendRequest(State state, AndroidHttpClient client,
+	private HttpResponse sendRequest(State state, HttpStack client,
 			HttpGet request) throws StopRequest {
 		try {
-			return client.execute(request);
+			return client.performRequest(request);
 		} catch (IllegalArgumentException ex) {
 			throw new StopRequest(Downloads.STATUS_HTTP_DATA_ERROR,
 					"while trying to execute request: " + ex.toString(), ex);
@@ -898,6 +914,14 @@ public class DownloadTask implements Runnable {
 		for (Pair<String, String> header : mInfo.getHeaders()) {
 			request.addHeader(header.first, header.second);
 		}
+
+		// Only splice in user agent when not already defined
+		if (!request.containsHeader("User-Agent") ) {
+			request.addHeader("User-Agent", userAgent());
+		}
+		// Defeat transparent gzip compression, since it doesn't allow us to
+		// easily resume partial downloads.
+		request.addHeader("Accept-Encoding", "identity");
 
 		if (innerState.mContinuingDownload) {
 			if (innerState.mHeaderETag != null) {
