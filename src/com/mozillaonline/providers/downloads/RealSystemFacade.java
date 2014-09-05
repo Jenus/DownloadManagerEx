@@ -2,11 +2,10 @@ package com.mozillaonline.providers.downloads;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -33,13 +32,7 @@ class RealSystemFacade implements SystemFacade {
 	// 1 GB
 	private static final long DOWNLOAD_RECOMMENDED_MAX_BYTES_OVER_MOBILE = 1024 * 1024 * 1024;
 	
-	private static final ThreadFactory sThreadFactory = new ThreadFactory() {
-        private final AtomicInteger mCount = new AtomicInteger(1);
 
-        public Thread newThread(Runnable r) {
-            return new Thread(r, "RealSystemFacade #" + mCount.getAndIncrement());
-        }
-    };
 
     private static final BlockingQueue<Runnable> sPoolWorkQueue =
             new LinkedBlockingQueue<Runnable>(Constants.MAXIMUM_WORK_QUEUE_SIZE);
@@ -47,9 +40,9 @@ class RealSystemFacade implements SystemFacade {
     /**
      * An {@link Executor} that can be used to execute tasks in parallel.
      */
-    public static final Executor sThreadPoolExecutor
-            = new ThreadPoolExecutor(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE,
-                    TimeUnit.SECONDS, sPoolWorkQueue, sThreadFactory);
+    public static final  ThreadPoolExecutor executor = new ThreadPoolExecutor(
+    		CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, 10, TimeUnit.SECONDS,
+    		sPoolWorkQueue);
 
 	public RealSystemFacade(Context context) {
 		mContext = context;
@@ -144,8 +137,8 @@ class RealSystemFacade implements SystemFacade {
 	}
 
 	@Override
-	public void runOnThreadPool(Runnable command) {
-		sThreadPoolExecutor.execute(command);
+	public Future<?> runOnThreadPool(Runnable command) {
+		return executor.submit(command);
 	}
 
 	@Override

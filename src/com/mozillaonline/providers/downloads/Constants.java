@@ -67,14 +67,14 @@ public class Constants {
 	/**
 	 * maximumPoolSize the maximum number of threads to allow in the pool
 	 */
-	public static final int MAXIMUM_POOL_SIZE = 10;
+	public static final int MAXIMUM_POOL_SIZE = 5;
 	
 	/**
 	 * keepAliveTime when the number of threads is greater than
      * the core, this is the maximum time that excess idle threads
      * will wait for new tasks before terminating.
 	 */
-	public static final int KEEP_ALIVE = 1;
+	public static final int KEEP_ALIVE = 10;
 	
 	/**
 	 * maximum work queue size wait to be download. 

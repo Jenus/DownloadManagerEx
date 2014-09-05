@@ -237,7 +237,7 @@ public class DownloadTask implements Runnable {
 			notifyDownloadCompleted(finalStatus, state.mCountRetry,
 					state.mRetryAfter, state.mGotData, state.mFilename,
 					state.mNewUri, state.mMimeType);
-			mInfo.mHasActiveThread = false;
+			mInfo.cancelTask();
 		}
 	}
 

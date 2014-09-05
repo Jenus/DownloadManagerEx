@@ -1,6 +1,8 @@
 
 package com.mozillaonline.providers.downloads;
 
+import java.util.concurrent.Future;
+
 import android.app.Notification;
 import android.content.Intent;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -71,7 +73,7 @@ interface SystemFacade {
      * post the runnable to the ThreadPool<br/>
      * @param runnable
      */
-    public void runOnThreadPool(Runnable runnable);
+    public Future<?> runOnThreadPool(Runnable runnable);
     
     /**
      * clear the thread pool

@@ -9,7 +9,7 @@
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or ed.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Future;
 
 import android.content.ContentResolver;
 import android.content.ContentUris;
@@ -30,6 +31,7 @@ import android.database.CharArrayBuffer;
 import android.database.Cursor;
 import android.net.ConnectivityManager;
 import android.net.Uri;
+import android.os.Environment;
 import android.util.Log;
 import android.util.Pair;
 
@@ -236,10 +238,9 @@ public class DownloadInfo {
 
     public int mFuzz;
 
-    public volatile boolean mHasActiveThread;
-
     private List<Pair<String, String>> mRequestHeaders = new ArrayList<Pair<String, String>>();
     private SystemFacade mSystemFacade;
+    private Future<?> mSubmittedTask;
     private Context mContext;
 
     private DownloadInfo(Context context, SystemFacade systemFacade) {
@@ -298,31 +299,35 @@ public class DownloadInfo {
      * Returns whether this download (which the download manager hasn't seen yet)
      * should be started.
      */
-    private boolean isReadyToStart(long now) {
-        if (mHasActiveThread) {
-            // already running
-            return false;
-        }
-        if (mControl == Downloads.CONTROL_PAUSED) {
-            // the download is paused, so it's not going to start
-            return false;
-        }
-        switch (mStatus) {
-            case 0: // status hasn't been initialized yet, this is a new download
-            case Downloads.STATUS_PENDING: // download is explicit marked as ready to start
-            case Downloads.STATUS_RUNNING: // download interrupted (process killed etc) while
-                                                // running, without a chance to update the database
-                return true;
-
-            case Downloads.STATUS_WAITING_FOR_NETWORK:
-            case Downloads.STATUS_QUEUED_FOR_WIFI:
-                return checkCanUseNetwork() == NETWORK_OK;
-
-            case Downloads.STATUS_WAITING_TO_RETRY:
-                // download was waiting for a delayed restart
-                return restartTime(now) <= now;
-        }
-        return false;
+    private boolean isReadyToDownload() {
+    	if (mControl == Downloads.CONTROL_PAUSED) {
+			// the download is paused, so it's not going to start
+			return false;
+		}
+		switch (mStatus) {
+		case 0: // status hasn't been initialized yet, this is a new download
+		case Downloads.STATUS_PENDING: // download is explicit marked as
+											// ready to start
+		case Downloads.STATUS_RUNNING: // download interrupted (process
+											// killed etc) while
+			// running, without a chance to update the database
+			return true;
+		case Downloads.STATUS_WAITING_FOR_NETWORK:
+		case Downloads.STATUS_QUEUED_FOR_WIFI:
+			return checkCanUseNetwork() == NETWORK_OK;
+		case Downloads.STATUS_WAITING_TO_RETRY:
+			// download was waiting for a delayed restart
+			final long now = mSystemFacade.currentTimeMillis();
+			return restartTime(now) <= now;
+		case Downloads.STATUS_DEVICE_NOT_FOUND_ERROR:
+			// is the media mounted?
+			return Environment.getExternalStorageState().equals(
+					Environment.MEDIA_MOUNTED);
+		case Downloads.STATUS_INSUFFICIENT_SPACE_ERROR:
+			// avoids repetition of retrying download
+			return false;
+		}
+		return false;
     }
 
     /**
@@ -445,28 +450,31 @@ public class DownloadInfo {
         return NETWORK_OK;
     }
 
-    void startIfReady(long now) {
-        if (!isReadyToStart(now)) {
-            return;
-        }
-        if (Constants.LOGV) {
-            Log.v(Constants.TAG, "Service spawning thread to handle download " + mId);
-        }
-        if (mHasActiveThread) {
-            throw new IllegalStateException("Multiple threads on same download");
-        }
-        if (mStatus != Downloads.STATUS_PENDING) {
-            mStatus = Downloads.STATUS_PENDING;
-            ContentValues values = new ContentValues();
-            values.put(Downloads.COLUMN_STATUS, mStatus);
-            mContext.getContentResolver().update(getAllDownloadsUri(), values, null, null);
-            return;
-        }
-        DownloadTask downloader = new DownloadTask(mContext, mSystemFacade, this);
-        mHasActiveThread = true;
-//        mSystemFacade.startThread(downloader);
-        mSystemFacade.runOnThreadPool(downloader);
+    public boolean startIfReady() {
+    	synchronized (this) {
+			final boolean isReady = isReadyToDownload();
+			final boolean isActive = mSubmittedTask != null
+					&& !mSubmittedTask.isDone();
+			if (isReady && !isActive) {
+				if (mStatus != Downloads.STATUS_RUNNING) {
+					mStatus = Downloads.STATUS_RUNNING;
+					ContentValues values = new ContentValues();
+					values.put(Downloads.COLUMN_STATUS, mStatus);
+					mContext.getContentResolver().update(getAllDownloadsUri(),
+							values, null, null);
+				}
+				DownloadTask task = new DownloadTask(mContext, mSystemFacade, this);
+				mSubmittedTask = mSystemFacade.runOnThreadPool(task);
+			}
+			return isReady;
+    	}
     }
+    
+    public void cancelTask() {
+		if ( this.mSubmittedTask != null ) {
+			this.mSubmittedTask.cancel(true);
+		}
+	}
 
     public Uri getMyDownloadsUri() {
         return ContentUris.withAppendedId(Downloads.CONTENT_URI, mId);
@@ -510,7 +518,7 @@ public class DownloadInfo {
      * -1 = never - service can go away without ever waking up.
      * positive value - service must wake up in the future, as specified in ms from "now"
      */
-    long nextAction(long now) {
+    long nextActionMillis(long now) {
         if (Downloads.isStatusCompleted(mStatus)) {
             return -1;
         }

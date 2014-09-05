@@ -16,7 +16,10 @@
 
 package com.mozillaonline.providers.downloads;
 
+import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
+
 import java.io.File;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -26,15 +29,15 @@ import java.util.Set;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.content.ContentUris;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.database.ContentObserver;
 import android.database.Cursor;
-import android.net.Uri;
-import android.os.Environment;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
+import android.os.Message;
 import android.os.Process;
 import android.util.Log;
 
@@ -43,6 +46,8 @@ import android.util.Log;
  * Downloads provider.
  */
 public class DownloadService extends Service {
+	private static final boolean DEBUG_LIFECYCLE = false;
+	
 	private static final String ACTION_PAUSE_ALL = "action_pause_all";
 
 	private static final String EXTRA_IS_PAUSE_ALL = "extra_is_pause_all";
@@ -94,16 +99,13 @@ public class DownloadService extends Service {
 	 * The thread that updates the internal download list from the content
 	 * provider.
 	 */
-	UpdateThread mUpdateThread;
+	private HandlerThread mUpdateThread;
+	private Handler mUpdateHandler;
+	private volatile int mLastStartId;
 
-	/**
-	 * Whether the internal download list should be updated from the content
-	 * provider.
-	 */
-	private boolean mPendingUpdate;
 
 	SystemFacade mSystemFacade;
-
+	private AlarmManager mAlarmManager;
 	/**
 	 * Receives notifications when the data in the content provider changes
 	 */
@@ -155,8 +157,13 @@ public class DownloadService extends Service {
 		getContentResolver().registerContentObserver(
 				Downloads.ALL_DOWNLOADS_CONTENT_URI, true, mObserver);
 
+		mAlarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
 		mNotifier = new DownloadNotification(this, mSystemFacade);
 		mSystemFacade.cancelAllNotifications();
+		
+		mUpdateThread = new HandlerThread(Constants.TAG + "-UpdateThread");
+		mUpdateThread.start();
+		mUpdateHandler = new Handler(mUpdateThread.getLooper(), mUpdateCallback);
 
 		updateFromProvider();
 	}
@@ -181,7 +188,7 @@ public class DownloadService extends Service {
 						Map.Entry<?, ?> entry = (Map.Entry<?, ?>) iter.next();
 						Object obj = entry.getValue();
 						if (obj instanceof DownloadInfo) {
-							((DownloadInfo) obj).mHasActiveThread = false;
+							((DownloadInfo) obj).cancelTask();
 						}
 					}
 				}
@@ -205,262 +212,178 @@ public class DownloadService extends Service {
 	 * Parses data from the content provider into private array
 	 */
 	private void updateFromProvider() {
-		synchronized (this) {
-			mPendingUpdate = true;
-			if (mUpdateThread == null) {
-				mUpdateThread = new UpdateThread();
-				mSystemFacade.startThread(mUpdateThread);
-			}
-		}
+		mUpdateHandler.removeMessages(MSG_UPDATE);
+		mUpdateHandler.obtainMessage(MSG_UPDATE, mLastStartId, -1)
+				.sendToTarget();
+	}
+	
+	/**
+	 * Enqueue an {@link #updateLocked()} pass to occur after delay, usually to
+	 * catch any finished operations that didn't trigger an update pass.
+	 */
+	private void enqueueFinalUpdate() {
+		mUpdateHandler.removeMessages(MSG_FINAL_UPDATE);
+		mUpdateHandler.sendMessageDelayed(mUpdateHandler.obtainMessage(
+				MSG_FINAL_UPDATE, mLastStartId, -1), 5 * MINUTE_IN_MILLIS);
 	}
 
-	private class UpdateThread extends Thread {
-		public UpdateThread() {
-			super("Download Service");
-		}
-
-		public void run() {
+	private static final int MSG_UPDATE = 1;
+	private static final int MSG_FINAL_UPDATE = 2;
+	private Handler.Callback mUpdateCallback = new Handler.Callback() {
+		@Override
+		public boolean handleMessage(Message msg) {
 			Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
-
-			trimDatabase();
-			removeSpuriousFiles();
-
-			boolean keepService = false;
-			// for each update from the database, remember which download is
-			// supposed to get restarted soonest in the future
-			long wakeUp = Long.MAX_VALUE;
-			for (;;) {
-				synchronized (DownloadService.this) {
-					if (mUpdateThread != this) {
-						throw new IllegalStateException(
-								"multiple UpdateThreads in DownloadService");
-					}
-					if (!mPendingUpdate) {
-						mUpdateThread = null;
-						if (!keepService) {
-							stopSelf();
-						}
-						if (wakeUp != Long.MAX_VALUE) {
-							scheduleAlarm(wakeUp);
-						}
-						return;
-					}
-					mPendingUpdate = false;
-				}
-
-				long now = mSystemFacade.currentTimeMillis();
-				keepService = false;
-				wakeUp = Long.MAX_VALUE;
-				Set<Long> idsNoLongerInDatabase = new HashSet<Long>(
-						mDownloads.keySet());
-
-				Cursor cursor = getContentResolver().query(
-						Downloads.ALL_DOWNLOADS_CONTENT_URI, null, null, null,
-						null);
-				if (cursor == null) {
-					continue;
-				}
-				try {
-					DownloadInfo.Reader reader = new DownloadInfo.Reader(
-							getContentResolver(), cursor);
-					int idColumn = cursor.getColumnIndexOrThrow(Downloads._ID);
-
-					for (cursor.moveToFirst(); !cursor.isAfterLast(); cursor
-							.moveToNext()) {
-						long id = cursor.getLong(idColumn);
-						idsNoLongerInDatabase.remove(id);
-						DownloadInfo info = mDownloads.get(id);
-						if (info != null) {
-							updateDownload(reader, info, now);
-						} else {
-							info = insertDownload(reader, now);
-						}
-						if (info.hasCompletionNotification()) {
-							keepService = true;
-						}
-						long next = info.nextAction(now);
-						if (next == 0) {
-							keepService = true;
-						} else if (next > 0 && next < wakeUp) {
-							wakeUp = next;
-						}
-					}
-				} finally {
-					cursor.close();
-				}
-
-				for (Long id : idsNoLongerInDatabase) {
-					deleteDownload(id);
-				}
-
-				// is there a need to start the DownloadService? yes, if there
-				// are rows to be deleted.
-
-				for (DownloadInfo info : mDownloads.values()) {
-					if (info.mDeleted) {
-						keepService = true;
-						break;
+			final int startId = msg.arg1;
+			if (DEBUG_LIFECYCLE)
+				Log.v(Constants.TAG, "Updating for startId " + startId);
+			// Since database is current source of truth, our "active" status
+			// depends on database state. We always get one final update pass
+			// once the real actions have finished and persisted their state.
+			// TODO: switch to asking real tasks to derive active state
+			// TODO: handle media scanner timeouts
+			final boolean isActive;
+			synchronized (mDownloads) {
+				isActive = updateLocked();
+			}
+			if (msg.what == MSG_FINAL_UPDATE) {
+				// Dump thread stacks belonging to pool
+				for (Map.Entry<Thread, StackTraceElement[]> entry : Thread
+						.getAllStackTraces().entrySet()) {
+					if (entry.getKey().getName().startsWith("pool")) {
+						Log.d(Constants.TAG,
+								entry.getKey() + ": "
+										+ Arrays.toString(entry.getValue()));
 					}
 				}
-
-				mNotifier.updateNotification(mDownloads.values());
-
-				// look for all rows with deleted flag set and delete the rows
-				// from the database
-				// permanently
-				for (DownloadInfo info : mDownloads.values()) {
-					if (info.mDeleted) {
-						Helpers.deleteFile(getContentResolver(), info.mId,
-								info.mFileName, info.mMimeType);
-					}
+				Log.wtf(Constants.TAG, "Final update pass triggered, isActive="
+						+ isActive + "; someone didn't update correctly.");
+			}
+			if (isActive) {
+				// Still doing useful work, keep service alive. These active
+				// tasks will trigger another update pass when they're finished.
+				// Enqueue delayed update pass to catch finished operations that
+				// didn't trigger an update pass; these are bugs.
+				enqueueFinalUpdate();
+			} else {
+				// No active tasks, and any pending update messages can be
+				// ignored, since any updates important enough to initiate tasks
+				// will always be delivered with a new startId.
+				if (stopSelfResult(startId)) {
+					if (DEBUG_LIFECYCLE)
+						Log.v(Constants.TAG, "Nothing left; stopped");
+					getContentResolver().unregisterContentObserver(mObserver);
+					mUpdateThread.quit();
 				}
 			}
+			return true;
 		}
-
-		private void scheduleAlarm(long wakeUp) {
-			AlarmManager alarms = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-			if (alarms == null) {
-				Log.e(Constants.TAG, "couldn't get alarm manager");
-				return;
-			}
-
-			if (Constants.LOGV) {
-				Log.v(Constants.TAG, "scheduling retry in " + wakeUp + "ms");
-			}
-
-			Intent intent = new Intent(Constants.ACTION_RETRY);
-			intent.setClassName(getPackageName(),
-					DownloadReceiver.class.getName());
-			alarms.set(AlarmManager.RTC_WAKEUP,
-					mSystemFacade.currentTimeMillis() + wakeUp, PendingIntent
-							.getBroadcast(DownloadService.this, 0, intent,
-									PendingIntent.FLAG_ONE_SHOT));
-		}
-	}
+	};
 
 	/**
-	 * Removes files that may have been left behind in the cache directory
+	 * Update {@link #mDownloads} to match {@link DownloadProvider} state.
+	 * Depending on current download state it may enqueue {@link DownloadThread}
+	 * instances, request {@link DownloadScanner} scans, update user-visible
+	 * notifications, and/or schedule future actions with {@link AlarmManager}.
+	 * <p>
+	 * Should only be called from {@link #mUpdateThread} as after being
+	 * requested through {@link #enqueueUpdate()}.
+	 * 
+	 * @return If there are active tasks being processed, as of the database
+	 *         snapshot taken in this update.
 	 */
-	private void removeSpuriousFiles() {
-		File[] files = Environment.getDownloadCacheDirectory().listFiles();
-		if (files == null) {
-			// The cache folder doesn't appear to exist (this is likely the case
-			// when running the simulator).
-			return;
-		}
-		HashSet<String> fileSet = new HashSet<String>();
-		for (int i = 0; i < files.length; i++) {
-			if (files[i].getName().equals(Constants.KNOWN_SPURIOUS_FILENAME)) {
-				continue;
+	private boolean updateLocked() {
+		final long now = mSystemFacade.currentTimeMillis();
+		boolean isActive = false;
+		long nextActionMillis = Long.MAX_VALUE;
+		final Set<Long> staleIds = new HashSet<Long>(mDownloads.keySet());
+		final ContentResolver resolver = getContentResolver();
+		final Cursor cursor = resolver.query(
+				Downloads.ALL_DOWNLOADS_CONTENT_URI, null, null, null,
+				null);
+		try {
+			final DownloadInfo.Reader reader = new DownloadInfo.Reader(
+					resolver, cursor);
+			final int idColumn = cursor
+					.getColumnIndexOrThrow(Downloads._ID);
+			while (cursor.moveToNext()) {
+				final long id = cursor.getLong(idColumn);
+				staleIds.remove(id);
+				DownloadInfo info = mDownloads.get(id);
+				if (info != null) {
+					updateDownload(reader, info, now);
+				} else {
+					info = insertDownloadLocked(reader, now);
+				}
+				if (info.mDeleted) {
+					Helpers.deleteFile(getContentResolver(), info.mId,
+							info.mFileName, info.mMimeType);
+				} else {
+					// Kick off download task if ready
+					final boolean activeDownload = info.startIfReady();
+					if (DEBUG_LIFECYCLE && activeDownload ) {
+						Log.v(Constants.TAG, "Download " + info.mId + ": activeDownload="
+								+ activeDownload);
+					}
+					isActive |= activeDownload;
+				}
+				// Keep track of nearest next action
+				nextActionMillis = Math.min(info.nextActionMillis(now),
+						nextActionMillis);
 			}
-			if (files[i].getName().equalsIgnoreCase(
-					Constants.RECOVERY_DIRECTORY)) {
-				continue;
-			}
-			fileSet.add(files[i].getPath());
-		}
-
-		Cursor cursor = getContentResolver().query(
-				Downloads.ALL_DOWNLOADS_CONTENT_URI,
-				new String[] { Downloads._DATA }, null, null, null);
-		if (cursor != null) {
-			if (cursor.moveToFirst()) {
-				do {
-					fileSet.remove(cursor.getString(0));
-				} while (cursor.moveToNext());
-			}
+		} finally {
 			cursor.close();
 		}
-		Iterator<String> iterator = fileSet.iterator();
-		while (iterator.hasNext()) {
-			String filename = iterator.next();
+		// Clean up stale downloads that disappeared
+		for (Long id : staleIds) {
+			deleteDownloadLocked(id);
+		}
+		// Update notifications visible to user
+		mNotifier.updateNotification(mDownloads.values());
+		// Set alarm when next action is in future. It's okay if the service
+		// continues to run in meantime, since it will kick off an update pass.
+		if (nextActionMillis > 0 && nextActionMillis < Long.MAX_VALUE) {
 			if (Constants.LOGV) {
-				Log.v(Constants.TAG, "deleting spurious file " + filename);
+				Log.v(Constants.TAG, "scheduling start in " + nextActionMillis + "ms");
 			}
-			new File(filename).delete();
+			final Intent intent = new Intent(Constants.ACTION_RETRY);
+			intent.setClass(this, DownloadReceiver.class);
+			mAlarmManager.set(AlarmManager.RTC_WAKEUP, now + nextActionMillis,
+					PendingIntent.getBroadcast(this, 0, intent,
+							PendingIntent.FLAG_ONE_SHOT));
 		}
-	}
-
-	/**
-	 * Drops old rows from the database to prevent it from growing too large
-	 */
-	private void trimDatabase() {
-		Cursor cursor = getContentResolver().query(
-				Downloads.ALL_DOWNLOADS_CONTENT_URI,
-				new String[] { Downloads._ID },
-				Downloads.COLUMN_STATUS + " >= '200'", null,
-				Downloads.COLUMN_LAST_MODIFICATION);
-		if (cursor == null) {
-			// This isn't good - if we can't do basic queries in our database,
-			// nothing's gonna work
-			Log.e(Constants.TAG, "null cursor in trimDatabase");
-			return;
-		}
-		if (cursor.moveToFirst()) {
-			int numDelete = cursor.getCount() - Constants.MAX_DOWNLOADS;
-			int columnId = cursor.getColumnIndexOrThrow(Downloads._ID);
-			while (numDelete > 0) {
-				Uri downloadUri = ContentUris.withAppendedId(
-						Downloads.ALL_DOWNLOADS_CONTENT_URI,
-						cursor.getLong(columnId));
-				getContentResolver().delete(downloadUri, null, null);
-				if (!cursor.moveToNext()) {
-					break;
-				}
-				numDelete--;
-			}
-		}
-		cursor.close();
+		return isActive;
 	}
 
 	/**
 	 * Keeps a local copy of the info about a download, and initiates the
 	 * download if appropriate.
 	 */
-	private DownloadInfo insertDownload(DownloadInfo.Reader reader, long now) {
-		DownloadInfo info = reader.newDownloadInfo(this, mSystemFacade);
+	private DownloadInfo insertDownloadLocked(DownloadInfo.Reader reader,
+			long now) {
+		final DownloadInfo info = reader.newDownloadInfo(this, mSystemFacade);
 		mDownloads.put(info.mId, info);
-
 		if (Constants.LOGVV) {
-			info.logVerboseInfo();
+			Log.v(Constants.TAG, "processing inserted download " + info.mId);
 		}
-
-		if (Constants.LOGVV) {
-			Log.v(Constants.TAG, "Service start a new download.");
-		}
-		info.startIfReady(now);
 		return info;
 	}
-
+	
 	/**
 	 * Updates the local copy of the info about a download.
 	 */
 	private void updateDownload(DownloadInfo.Reader reader, DownloadInfo info,
 			long now) {
-		int oldVisibility = info.mVisibility;
-		int oldStatus = info.mStatus;
-
 		reader.updateFromDatabase(info);
-
-		boolean lostVisibility = oldVisibility == Downloads.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
-				&& info.mVisibility != Downloads.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
-				&& Downloads.isStatusCompleted(info.mStatus);
-		boolean justCompleted = !Downloads.isStatusCompleted(oldStatus)
-				&& Downloads.isStatusCompleted(info.mStatus);
-		if (lostVisibility || justCompleted) {
-			mSystemFacade.cancelNotification(info.mId);
-		}
-
 		if (Constants.LOGVV) {
-			Log.v(Constants.TAG, "Service start a new download.");
+			Log.v(Constants.TAG, "processing updated download " + info.mId
+					+ ", status: " + info.mStatus);
 		}
-		info.startIfReady(now);
 	}
 
 	/**
 	 * Removes the local copy of the info about a download.
 	 */
-	private void deleteDownload(long id) {
+	private void deleteDownloadLocked(long id) {
 		DownloadInfo info = mDownloads.get(id);
 		if (info.mStatus == Downloads.STATUS_RUNNING) {
 			info.mStatus = Downloads.STATUS_CANCELED;
