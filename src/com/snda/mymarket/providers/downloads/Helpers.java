@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mozillaonline.providers.downloads;
+package com.snda.mymarket.providers.downloads;
 
 import java.io.File;
 import java.util.Random;

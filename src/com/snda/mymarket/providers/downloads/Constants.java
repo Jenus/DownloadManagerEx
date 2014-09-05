@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mozillaonline.providers.downloads;
+package com.snda.mymarket.providers.downloads;
 
 import android.os.Environment;
 import android.util.Config;
@@ -29,33 +29,33 @@ public class Constants {
     /**
      * DownloadProvider authority
      */
-    public static final String AUTHORITY = "com.mozillaonline.downloads";
+    public static final String AUTHORITY = "com.snda.mymarket.downloads";
    
     /**
      * The permission to access the download manager
      */
-    public static final String PERMISSION_ACCESS = "com.mozillaonline.permission.ACCESS_DOWNLOAD_MANAGER";
+    public static final String PERMISSION_ACCESS = "com.snda.mymarket.permission.ACCESS_DOWNLOAD_MANAGER";
 
     /**
      * The permission to access the download manager's advanced functions
      */
-    public static final String PERMISSION_ACCESS_ADVANCED = "com.mozillaonline.permission.ACCESS_DOWNLOAD_MANAGER_ADVANCED";
+    public static final String PERMISSION_ACCESS_ADVANCED = "com.snda.mymarket.permission.ACCESS_DOWNLOAD_MANAGER_ADVANCED";
 
     /**
      * The permission to access the all the downloads in the manager.
      */
-    public static final String PERMISSION_ACCESS_ALL = "com.mozillaonline.permission.ACCESS_ALL_DOWNLOADS";
+    public static final String PERMISSION_ACCESS_ALL = "com.snda.mymarket.permission.ACCESS_ALL_DOWNLOADS";
 
     /**
      * The permission to send broadcasts on download completion
      */
-    public static final String PERMISSION_SEND_INTENTS = "com.mozillaonline.permission.SEND_DOWNLOAD_COMPLETED_INTENTS";
+    public static final String PERMISSION_SEND_INTENTS = "com.snda.mymarket.permission.SEND_DOWNLOAD_COMPLETED_INTENTS";
 
     /**
      * The permission to download files without any system notification being
      * shown.
      */
-    public static final String PERMISSION_NO_NOTIFICATION = "com.mozillaonline.permission.DOWNLOAD_WITHOUT_NOTIFICATION";
+    public static final String PERMISSION_NO_NOTIFICATION = "com.snda.mymarket.permission.DOWNLOAD_WITHOUT_NOTIFICATION";
 
 	
 	/**

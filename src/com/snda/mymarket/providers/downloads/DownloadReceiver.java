@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mozillaonline.providers.downloads;
+package com.snda.mymarket.providers.downloads;
 
 import java.io.File;
 
@@ -30,7 +30,7 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.util.Log;
 
-import com.mozillaonline.providers.DownloadManager;
+import com.snda.mymarket.providers.DownloadManager;
 
 /**
  * Receives system broadcasts (boot, network connectivity)

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.mozillaonline.downloadprovider"
+    package="com.snda.mymarket.downloadprovider"
     android:versionCode="1"
     android:versionName="1.0" >
 
@@ -8,29 +8,29 @@
 
     <!-- Allows access to the Download Manager -->
     <permission
-        android:name="com.mozillaonline.permission.ACCESS_DOWNLOAD_MANAGER"
+        android:name="com.snda.mymarket.permission.ACCESS_DOWNLOAD_MANAGER"
         android:description="@string/permdesc_downloadManager"
         android:label="@string/permlab_downloadManager"
         android:protectionLevel="normal" />
 
     <!-- Allows advanced access to the Download Manager -->
     <permission
-        android:name="com.mozillaonline.permission.ACCESS_DOWNLOAD_MANAGER_ADVANCED"
+        android:name="com.snda.mymarket.permission.ACCESS_DOWNLOAD_MANAGER_ADVANCED"
         android:description="@string/permdesc_downloadManagerAdvanced"
         android:label="@string/permlab_downloadManagerAdvanced"
         android:protectionLevel="normal" />
 
     <!-- Allows to send broadcasts on download completion -->
     <permission
-        android:name="com.mozillaonline.permission.SEND_DOWNLOAD_COMPLETED_INTENTS"
+        android:name="com.snda.mymarket.permission.SEND_DOWNLOAD_COMPLETED_INTENTS"
         android:description="@string/permdesc_downloadCompletedIntent"
         android:label="@string/permlab_downloadCompletedIntent"
         android:protectionLevel="normal" />
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="com.mozillaonline.permission.ACCESS_DOWNLOAD_MANAGER" />
-    <uses-permission android:name="com.mozillaonline.permission.ACCESS_DOWNLOAD_MANAGER_ADVANCED" />
-    <uses-permission android:name="com.mozillaonline.permission.SEND_DOWNLOAD_COMPLETED_INTENTS" />
+    <uses-permission android:name="com.snda.mymarket.permission.ACCESS_DOWNLOAD_MANAGER" />
+    <uses-permission android:name="com.snda.mymarket.permission.ACCESS_DOWNLOAD_MANAGER_ADVANCED" />
+    <uses-permission android:name="com.snda.mymarket.permission.SEND_DOWNLOAD_COMPLETED_INTENTS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
@@ -47,17 +47,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name="com.mozillaonline.providers.downloads.ui.DownloadList" >
+        <activity android:name="com.snda.mymarket.providers.downloads.ui.DownloadList" >
         </activity>
 
         <provider
-            android:name="com.mozillaonline.providers.downloads.DownloadProvider"
-            android:authorities="com.mozillaonline.downloads" />
+            android:name="com.snda.mymarket.providers.downloads.DownloadProvider"
+            android:authorities="com.snda.mymarket.downloads" />
 
-        <service android:name="com.mozillaonline.providers.downloads.DownloadService" />
+        <service android:name="com.snda.mymarket.providers.downloads.DownloadService" />
 
         <receiver
-            android:name="com.mozillaonline.providers.downloads.DownloadReceiver"
+            android:name="com.snda.mymarket.providers.downloads.DownloadReceiver"
             android:exported="false" >
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

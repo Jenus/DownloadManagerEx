@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mozillaonline.providers.downloads;
+package com.snda.mymarket.providers.downloads;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,7 +35,7 @@ import android.os.Environment;
 import android.util.Log;
 import android.util.Pair;
 
-import com.mozillaonline.providers.DownloadManager;
+import com.snda.mymarket.providers.DownloadManager;
 
 /**
  * Stores information about an individual download.

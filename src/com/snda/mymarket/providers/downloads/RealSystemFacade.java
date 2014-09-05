@@ -1,4 +1,4 @@
-package com.mozillaonline.providers.downloads;
+package com.snda.mymarket.providers.downloads;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;

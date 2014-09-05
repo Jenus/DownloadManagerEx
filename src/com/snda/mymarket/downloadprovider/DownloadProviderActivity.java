@@ -1,4 +1,4 @@
-package com.mozillaonline.downloadprovider;
+package com.snda.mymarket.downloadprovider;
 
 import android.app.Activity;
 import android.content.BroadcastReceiver;
@@ -13,10 +13,10 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
 
-import com.mozillaonline.providers.DownloadManager;
-import com.mozillaonline.providers.DownloadManager.Request;
-import com.mozillaonline.providers.downloads.DownloadService;
-import com.mozillaonline.providers.downloads.ui.DownloadList;
+import com.snda.mymarket.providers.DownloadManager;
+import com.snda.mymarket.providers.DownloadManager.Request;
+import com.snda.mymarket.providers.downloads.DownloadService;
+import com.snda.mymarket.providers.downloads.ui.DownloadList;
 
 public class DownloadProviderActivity extends Activity implements
 		OnClickListener {

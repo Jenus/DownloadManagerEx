@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mozillaonline.providers;
+package com.snda.mymarket.providers;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -37,8 +37,8 @@ import android.os.ParcelFileDescriptor;
 import android.provider.BaseColumns;
 import android.util.Pair;
 
-import com.mozillaonline.providers.downloads.DownloadService;
-import com.mozillaonline.providers.downloads.Downloads;
+import com.snda.mymarket.providers.downloads.DownloadService;
+import com.snda.mymarket.providers.downloads.Downloads;
 
 /**
  * The download manager is a system service that handles long-running HTTP
@@ -584,7 +584,7 @@ public class DownloadManager {
 			values.put(Downloads.COLUMN_IS_VISIBLE_IN_DOWNLOADS_UI,
 					mIsVisibleInDownloadsUi);
 
-			values.put(Downloads.COLUMN_NO_INTEGRITY, 1);
+			values.put(Downloads.COLUMN_NO_INTEGRITY, true);
 
 			return values;
 		}

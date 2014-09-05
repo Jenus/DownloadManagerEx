@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mozillaonline.providers.downloads;
+package com.snda.mymarket.providers.downloads;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -28,7 +28,7 @@ import android.net.Uri;
 import android.view.View;
 import android.widget.RemoteViews;
 
-import com.mozillaonline.downloadprovider.R;
+import com.snda.mymarket.downloadprovider.R;
 
 /**
  * This class handles the updating of the Notification Manager for the

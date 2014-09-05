@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mozillaonline.providers.downloads.ui;
+package com.snda.mymarket.providers.downloads.ui;
 
 import android.content.Context;
 import android.util.AttributeSet;
@@ -22,7 +22,7 @@ import android.view.MotionEvent;
 import android.widget.CheckBox;
 import android.widget.RelativeLayout;
 
-import com.mozillaonline.downloadprovider.R;
+import com.snda.mymarket.downloadprovider.R;
 
 /**
  * This class customizes RelativeLayout to directly handle clicks on the left part of the view and

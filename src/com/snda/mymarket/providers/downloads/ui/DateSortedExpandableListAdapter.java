@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mozillaonline.providers.downloads.ui;
+package com.snda.mymarket.providers.downloads.ui;
 
 import java.util.Vector;
 
@@ -31,8 +31,8 @@ import android.widget.ExpandableListAdapter;
 import android.widget.ExpandableListView;
 import android.widget.TextView;
 
-import com.mozillaonline.downloadprovider.R;
-import com.mozillaonline.providers.DownloadManager;
+import com.snda.mymarket.downloadprovider.R;
+import com.snda.mymarket.providers.DownloadManager;
 
 /**
  * ExpandableListAdapter which separates data into categories based on date.  Copied from

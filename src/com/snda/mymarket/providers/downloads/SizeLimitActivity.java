@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mozillaonline.providers.downloads;
+package com.snda.mymarket.providers.downloads;
 
 import java.util.LinkedList;
 import java.util.Queue;
@@ -30,7 +30,7 @@ import android.net.Uri;
 import android.text.format.Formatter;
 import android.util.Log;
 
-import com.mozillaonline.downloadprovider.R;
+import com.snda.mymarket.downloadprovider.R;
 
 /**
  * Activity to show dialogs to the user when a download exceeds a limit on download sizes for

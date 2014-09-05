@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mozillaonline.providers.downloads.ui;
+package com.snda.mymarket.providers.downloads.ui;
 
 import java.text.DateFormat;
 import java.util.Calendar;
@@ -40,9 +40,9 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import com.mozillaonline.downloadprovider.R;
-import com.mozillaonline.providers.DownloadManager;
-import com.mozillaonline.providers.downloads.ui.DownloadItem.DownloadSelectListener;
+import com.snda.mymarket.downloadprovider.R;
+import com.snda.mymarket.providers.DownloadManager;
+import com.snda.mymarket.providers.downloads.ui.DownloadItem.DownloadSelectListener;
 
 /**
  * List adapter for Cursors returned by {@link DownloadManager}.

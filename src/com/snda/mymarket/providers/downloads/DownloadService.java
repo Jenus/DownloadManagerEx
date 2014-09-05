@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mozillaonline.providers.downloads;
+package com.snda.mymarket.providers.downloads;
 
 import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
 
@@ -174,26 +174,31 @@ public class DownloadService extends Service {
 		if (Constants.LOGVV) {
 			Log.v(Constants.TAG, "Service onStart");
 		}
-		updateFromProvider();
-
+		mLastStartId = startId;
+		
 		if(intent != null){
 			String action = intent.getAction();
 	
 			if (action != null) {
 				if (action.equals(ACTION_PAUSE_ALL)) {
-					mSystemFacade.clearThreadPool();
-	
-					Iterator<?> iter = mDownloads.entrySet().iterator();
-					while (iter.hasNext()) {
-						Map.Entry<?, ?> entry = (Map.Entry<?, ?>) iter.next();
-						Object obj = entry.getValue();
-						if (obj instanceof DownloadInfo) {
-							((DownloadInfo) obj).cancelTask();
+					if ( intent.getExtras().getBoolean(EXTRA_IS_PAUSE_ALL)) {
+						mSystemFacade.clearThreadPool();
+		
+						Iterator<?> iter = mDownloads.entrySet().iterator();
+						while (iter.hasNext()) {
+							Map.Entry<?, ?> entry = (Map.Entry<?, ?>) iter.next();
+							Object obj = entry.getValue();
+							if (obj instanceof DownloadInfo) {
+								((DownloadInfo) obj).cancelTask();
+							}
 						}
+						return returnValue;
 					}
 				}
 			}
 		}
+		
+		updateFromProvider();
 		return returnValue;
 	}
 

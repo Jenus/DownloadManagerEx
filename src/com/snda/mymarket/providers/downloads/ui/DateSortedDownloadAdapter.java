@@ -15,10 +15,10 @@
  */
 
 
-package com.mozillaonline.providers.downloads.ui;
+package com.snda.mymarket.providers.downloads.ui;
 
-import com.mozillaonline.providers.DownloadManager;
-import com.mozillaonline.providers.downloads.ui.DownloadItem.DownloadSelectListener;
+import com.snda.mymarket.providers.DownloadManager;
+import com.snda.mymarket.providers.downloads.ui.DownloadItem.DownloadSelectListener;
 
 import android.content.Context;
 import android.database.Cursor;
