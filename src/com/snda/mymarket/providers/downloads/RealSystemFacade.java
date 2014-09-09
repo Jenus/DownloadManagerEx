@@ -111,25 +111,6 @@ class RealSystemFacade implements SystemFacade {
 		return mContext.getPackageManager().getApplicationInfo(packageName, 0).uid == uid;
 	}
 
-	@Override
-	public void postNotification(long id, Notification notification) {
-		/**
-		 * TODO: The system notification manager takes ints, not longs, as IDs,
-		 * but the download manager uses IDs take straight from the database,
-		 * which are longs. This will have to be dealt with at some point.
-		 */
-		mNotificationManager.notify((int) id, notification);
-	}
-
-	@Override
-	public void cancelNotification(long id) {
-		mNotificationManager.cancel((int) id);
-	}
-
-	@Override
-	public void cancelAllNotifications() {
-		mNotificationManager.cancelAll();
-	}
 
 	@Override
 	public void startThread(Thread thread) {

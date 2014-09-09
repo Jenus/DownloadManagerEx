@@ -450,7 +450,7 @@ public class DownloadInfo {
         return NETWORK_OK;
     }
 
-    public boolean startIfReady() {
+    public boolean startIfReady( DownloadNotifier notifer ) {
     	synchronized (this) {
 			final boolean isReady = isReadyToDownload();
 			final boolean isActive = mSubmittedTask != null
@@ -463,7 +463,7 @@ public class DownloadInfo {
 					mContext.getContentResolver().update(getAllDownloadsUri(),
 							values, null, null);
 				}
-				DownloadTask task = new DownloadTask(mContext, mSystemFacade, this);
+				DownloadTask task = new DownloadTask(mContext, mSystemFacade, this, notifer);
 				mSubmittedTask = mSystemFacade.runOnThreadPool(task);
 			}
 			return isReady;

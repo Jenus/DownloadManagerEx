@@ -105,8 +105,6 @@ public class DownloadReceiver extends BroadcastReceiver {
      * @param cursor Cursor for reading the download's fields
      */
     private void hideNotification(Context context, Uri uri, Cursor cursor) {
-        mSystemFacade.cancelNotification(ContentUris.parseId(uri));
-
         int statusColumn = cursor.getColumnIndexOrThrow(Downloads.COLUMN_STATUS);
         int status = cursor.getInt(statusColumn);
         int visibilityColumn =

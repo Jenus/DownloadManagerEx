@@ -200,13 +200,13 @@ public class Constants {
     static final boolean LOGX = false;
 
     /** Enable verbose logging - use with "setprop log.tag.DownloadManager VERBOSE" */
-    private static final boolean LOCAL_LOGV = false;
+    private static final boolean LOCAL_LOGV = true;
     @SuppressWarnings("unused")
     public static final boolean LOGV = Config.LOGV
-            || (Config.LOGD && LOCAL_LOGV && Log.isLoggable(TAG, Log.VERBOSE));
+            || (Config.LOGD && LOCAL_LOGV && Log.isLoggable(TAG, Log.INFO));
 
     /** Enable super-verbose logging */
-    private static final boolean LOCAL_LOGVV = false;
+    private static final boolean LOCAL_LOGVV = true;
     @SuppressWarnings("unused")
     public static final boolean LOGVV = LOCAL_LOGVV && LOGV;
 //    public static final boolean LOGVV = BuildConfig.DEBUG;

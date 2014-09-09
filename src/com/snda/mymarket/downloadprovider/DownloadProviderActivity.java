@@ -79,15 +79,10 @@ public class DownloadProviderActivity extends Activity implements
 	@Override
 	public void onClick(View v) {
 		int id = v.getId();
-		switch (id) {
-		case R.id.start_download_button:
+		if (id == R.id.start_download_button) {
 			startDownload();
-			break;
-		case R.id.show_download_list_button:
+		} else if ( id == R.id.show_download_list_button ) {
 			showDownloadList();
-			break;
-		default:
-			break;
 		}
 	}
 

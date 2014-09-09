@@ -48,12 +48,14 @@ public class DownloadTask implements Runnable {
 	private Context mContext;
 	private DownloadInfo mInfo;
 	private SystemFacade mSystemFacade;
+	private DownloadNotifier mNotifer;
 
 	public DownloadTask(Context context, SystemFacade systemFacade,
-			DownloadInfo info) {
+			DownloadInfo info, DownloadNotifier notifer) {
 		mContext = context;
 		mSystemFacade = systemFacade;
 		mInfo = info;
+		mNotifer = notifer;
 	}
 
 	/**
@@ -220,6 +222,8 @@ public class DownloadTask implements Runnable {
 			finalStatus = Downloads.STATUS_UNKNOWN_ERROR;
 			// falls through to the code that reports an error
 		} finally {
+			mNotifer.notifyDownloadSpeed(mInfo.mId, 0);
+			
 			if (wakeLock != null) {
 				wakeLock.release();
 				wakeLock = null;
@@ -429,6 +433,11 @@ public class DownloadTask implements Runnable {
 			} else {
 				state.mSpeed = ((state.mSpeed * 3) + sampleSpeed) / 4;
 			}
+			
+			// Only notify once we have a full sample window
+			if (state.mSpeedSampleStart != 0) {
+				mNotifer.notifyDownloadSpeed(mInfo.mId, state.mSpeed);
+			}
 
 			state.mSpeedSampleStart = now;
 			state.mSpeedSampleBytes = innerState.mBytesSoFar;
@@ -595,6 +604,7 @@ public class DownloadTask implements Runnable {
 					mContext,
 					mInfo.mUri,
 					mInfo.mHint,
+					mInfo.mCurrentBytes,
 					innerState.mHeaderContentDisposition,
 					innerState.mHeaderContentLocation,
 					state.mMimeType,

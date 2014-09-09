@@ -84,7 +84,7 @@ public class DownloadService extends Service {
 	private DownloadManagerContentObserver mObserver;
 
 	/** Class to handle Notification Manager updates */
-	private DownloadNotification mNotifier;
+	private DownloadNotifier mNotifier;
 
 	/**
 	 * The Service's view of the list of downloads, mapping download IDs to the
@@ -158,8 +158,8 @@ public class DownloadService extends Service {
 				Downloads.ALL_DOWNLOADS_CONTENT_URI, true, mObserver);
 
 		mAlarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-		mNotifier = new DownloadNotification(this, mSystemFacade);
-		mSystemFacade.cancelAllNotifications();
+		mNotifier = new DownloadNotifier(this);
+		mNotifier.cancelAll();
 		
 		mUpdateThread = new HandlerThread(Constants.TAG + "-UpdateThread");
 		mUpdateThread.start();
@@ -324,7 +324,7 @@ public class DownloadService extends Service {
 							info.mFileName, info.mMimeType);
 				} else {
 					// Kick off download task if ready
-					final boolean activeDownload = info.startIfReady();
+					final boolean activeDownload = info.startIfReady( this.mNotifier );
 					if (DEBUG_LIFECYCLE && activeDownload ) {
 						Log.v(Constants.TAG, "Download " + info.mId + ": activeDownload="
 								+ activeDownload);
@@ -343,7 +343,7 @@ public class DownloadService extends Service {
 			deleteDownloadLocked(id);
 		}
 		// Update notifications visible to user
-		mNotifier.updateNotification(mDownloads.values());
+		mNotifier.updateWith(mDownloads.values());
 		// Set alarm when next action is in future. It's okay if the service
 		// continues to run in meantime, since it will kick off an update pass.
 		if (nextActionMillis > 0 && nextActionMillis < Long.MAX_VALUE) {
@@ -397,7 +397,6 @@ public class DownloadService extends Service {
 				&& info.mFileName != null) {
 			new File(info.mFileName).delete();
 		}
-		mSystemFacade.cancelNotification(info.mId);
 		mDownloads.remove(info.mId);
 	}
 }

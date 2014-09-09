@@ -663,6 +663,9 @@ public final class DownloadProvider extends ContentProvider {
 		// remove the rest of the columns that are allowed (with any value)
 		values.remove(Downloads.COLUMN_URI);
 		values.remove(Downloads.COLUMN_TITLE);
+		//TODO
+		values.remove(Downloads.COLUMN_NO_INTEGRITY);
+		
 		values.remove(Downloads.COLUMN_DESCRIPTION);
 		values.remove(Downloads.COLUMN_MIME_TYPE);
 		values.remove(Downloads.COLUMN_FILE_NAME_HINT); // checked later in

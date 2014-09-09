@@ -49,21 +49,6 @@ interface SystemFacade {
     public boolean userOwnsPackage(int uid, String pckg) throws NameNotFoundException;
 
     /**
-     * Post a system notification to the NotificationManager.
-     */
-    public void postNotification(long id, Notification notification);
-
-    /**
-     * Cancel a system notification.
-     */
-    public void cancelNotification(long id);
-
-    /**
-     * Cancel all system notifications.
-     */
-    public void cancelAllNotifications();
-
-    /**
      * @Deprecated use {@link #runOnThreadPool(Runnable)}
      * Start a thread.
      */
