@@ -19,10 +19,7 @@ package com.snda.mymarket.providers;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import android.content.ContentResolver;
 import android.content.ContentUris;
@@ -106,6 +103,11 @@ public class DownloadManager {
 	 * started.
 	 */
 	public final static String COLUMN_LOCAL_URI = "local_uri";
+	
+	/**
+	 * The pathname of the file where the download is stored.
+	 */
+	public final static String COLUMN_LOCAL_FILENAME = "local_filename";
 
 	/**
 	 * Current status of the download, as one of the STATUS_* constants.
@@ -283,28 +285,51 @@ public class DownloadManager {
 	 * indicating the ID (as a long) of the download that just completed.
 	 */
 	public static final String EXTRA_DOWNLOAD_ID = "extra_download_id";
+	
+	/**
+	 * Intent extra included with {@link #ACTION_DOWNLOAD_COMPLETE} intents,
+	 * indicating the status (success or fail) of the download that just completed.
+	 */
+	public static final String EXTRA_DOWNLOAD_STATUS = "extra_download_status";
+	/**
+	 * When clicks on multiple notifications are received, the following
+	 * provides an array of download ids corresponding to the download
+	 * notification that was clicked. It can be retrieved by the receiver of
+	 * this Intent using
+	 * {@link android.content.Intent#getLongArrayExtra(String)}.
+	 */
+	public static final String EXTRA_NOTIFICATION_CLICK_DOWNLOAD_IDS = "extra_click_download_ids";
 
-	// this array must contain all public columns
-	private static final String[] COLUMNS = new String[] { COLUMN_ID,
-			COLUMN_TITLE, COLUMN_DESCRIPTION, COLUMN_URI, COLUMN_MEDIA_TYPE,
-			COLUMN_TOTAL_SIZE_BYTES, COLUMN_LOCAL_URI, COLUMN_STATUS,
-			COLUMN_REASON, COLUMN_BYTES_DOWNLOADED_SO_FAR,
-			COLUMN_LAST_MODIFIED_TIMESTAMP, COLUMN_SPEED };
-
-	// columns to request from DownloadProvider
-	private static final String[] UNDERLYING_COLUMNS = new String[] {
-			Downloads._ID, Downloads.COLUMN_TITLE,
-			Downloads.COLUMN_DESCRIPTION, Downloads.COLUMN_URI,
-			Downloads.COLUMN_MIME_TYPE, Downloads.COLUMN_TOTAL_BYTES,
-			Downloads.COLUMN_STATUS, Downloads.COLUMN_CURRENT_BYTES,
-			Downloads.COLUMN_LAST_MODIFICATION, Downloads.COLUMN_DESTINATION,
-			Downloads.COLUMN_FILE_NAME_HINT, Downloads._DATA, Downloads.COLUMN_SPEED };
-
-	private static final Set<String> LONG_COLUMNS = new HashSet<String>(
-			Arrays.asList(COLUMN_ID, COLUMN_TOTAL_SIZE_BYTES, COLUMN_STATUS,
-					COLUMN_REASON, COLUMN_BYTES_DOWNLOADED_SO_FAR,
-					COLUMN_LAST_MODIFIED_TIMESTAMP, COLUMN_SPEED));
-
+	/**
+	 * columns to request from DownloadProvider.
+	 * 
+	 * @hide
+	 */
+	public static final String[] UNDERLYING_COLUMNS = new String[] {
+			Downloads._ID,
+			Downloads._DATA + " AS " + COLUMN_LOCAL_FILENAME,
+			//Downloads.COLUMN_MEDIAPROVIDER_URI,
+			Downloads.COLUMN_DESTINATION,
+			Downloads.COLUMN_TITLE,
+			Downloads.COLUMN_DESCRIPTION,
+			Downloads.COLUMN_URI,
+			Downloads.COLUMN_STATUS,
+			Downloads.COLUMN_FILE_NAME_HINT,
+			Downloads.COLUMN_MIME_TYPE + " AS " + COLUMN_MEDIA_TYPE,
+			Downloads.COLUMN_TOTAL_BYTES + " AS "
+					+ COLUMN_TOTAL_SIZE_BYTES,
+			Downloads.COLUMN_LAST_MODIFICATION + " AS "
+					+ COLUMN_LAST_MODIFIED_TIMESTAMP,
+			Downloads.COLUMN_CURRENT_BYTES + " AS "
+					+ COLUMN_BYTES_DOWNLOADED_SO_FAR,
+			//Downloads.COLUMN_ALLOW_WRITE,
+			/*
+			 * add the following 'computed' columns to the cursor. they are not
+			 * 'returned' by the database, but their inclusion eliminates need
+			 * to have lot of methods in CursorTranslator
+			 */
+			"'placeholder' AS " + COLUMN_LOCAL_URI,
+			"'placeholder' AS " + COLUMN_REASON };
 	/**
 	 * This class contains all the information necessary to request a new
 	 * download. The URI is the only required parameter.
@@ -326,13 +351,45 @@ public class DownloadManager {
 		 * {@link ConnectivityManager#TYPE_WIFI}.
 		 */
 		public static final int NETWORK_WIFI = 1 << 1;
+		
+		 /**
+	     * This download is visible but only shows in the notifications while it's
+	     * in progress.
+	     * 
+	     * @hide
+	     */
+	    public static final int VISIBILITY_VISIBLE = 0;
+
+	    /**
+	     * This download is visible and shows in the notifications while in progress
+	     * and after completion.
+	     * 
+	     * @hide
+	     */
+	    public static final int VISIBILITY_VISIBLE_NOTIFY_COMPLETED = 1;
+
+	    /**
+	     * This download doesn't show in the UI or in the notifications.
+	     * 
+	     * @hide
+	     */
+	    public static final int VISIBILITY_HIDDEN = 2;
+	    
+	    /**
+	    * This download shows in the notifications after completion ONLY.
+	    * It is usuable only with
+	    * {@link DownloadManager#addCompletedDownload(String, String,
+	    * boolean, String, String, long, boolean)}.
+	    */
+	    public static final int VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION = 3;
+	    
 
 		private Uri mUri;
 		private Uri mDestinationUri;
 		private List<Pair<String, String>> mRequestHeaders = new ArrayList<Pair<String, String>>();
 		private CharSequence mTitle;
 		private CharSequence mDescription;
-		private boolean mShowNotification = true;
+		private int mNotificationVisibility = VISIBILITY_VISIBLE;
 		private String mMimeType;
 		private boolean mRoamingAllowed = true;
 		private int mAllowedNetworkTypes = ~0; // default to all network types
@@ -503,9 +560,32 @@ public class DownloadManager {
 		 * @return this object
 		 */
 		public Request setShowRunningNotification(boolean show) {
-			mShowNotification = show;
-			return this;
+			return (show) ? setNotificationVisibility(VISIBILITY_VISIBLE) :
+				setNotificationVisibility(VISIBILITY_HIDDEN);
 		}
+		
+		/**
+		* Control whether a system notification is posted by the download manager while this
+		* download is running or when it is completed.
+		* If enabled, the download manager posts notifications about downloads
+		* through the system {@link android.app.NotificationManager}.
+		* By default, a notification is shown only when the download is in progress.
+		*<p>
+		* It can take the following values: {@link #VISIBILITY_HIDDEN},
+		* {@link #VISIBILITY_VISIBLE},
+		* {@link #VISIBILITY_VISIBLE_NOTIFY_COMPLETED}.
+		*<p>
+		* If set to {@link #VISIBILITY_HIDDEN}, this requires the permission
+		* android.permission.DOWNLOAD_WITHOUT_NOTIFICATION.
+		*
+		* @param visibility the visibility setting value
+		* @return this object
+		*/
+		public Request setNotificationVisibility(int visibility) {
+		    mNotificationVisibility = visibility;
+		    return this;
+		}
+
 
 		/**
 		 * Restrict the types of networks over which this download may proceed.
@@ -574,9 +654,7 @@ public class DownloadManager {
 			putIfNonNull(values, Downloads.COLUMN_DESCRIPTION, mDescription);
 			putIfNonNull(values, Downloads.COLUMN_MIME_TYPE, mMimeType);
 
-			values.put(Downloads.COLUMN_VISIBILITY,
-					mShowNotification ? Downloads.VISIBILITY_VISIBLE
-							: Downloads.VISIBILITY_HIDDEN);
+			values.put(Downloads.COLUMN_VISIBILITY, mNotificationVisibility );
 
 			values.put(Downloads.COLUMN_ALLOWED_NETWORK_TYPES,
 					mAllowedNetworkTypes);
@@ -1137,65 +1215,11 @@ public class DownloadManager {
 	 * underlying data.
 	 */
 	private static class CursorTranslator extends CursorWrapper {
+		private Uri mBaseUri;
 		public CursorTranslator(Cursor cursor, Uri baseUri) {
 			super(cursor);
-		}
-
-		@Override
-		public int getColumnIndex(String columnName) {
-			return Arrays.asList(COLUMNS).indexOf(columnName);
-		}
-
-		@Override
-		public int getColumnIndexOrThrow(String columnName)
-				throws IllegalArgumentException {
-			int index = getColumnIndex(columnName);
-			if (index == -1) {
-				throw new IllegalArgumentException("No such column: "
-						+ columnName);
-			}
-			return index;
-		}
-
-		@Override
-		public String getColumnName(int columnIndex) {
-			int numColumns = COLUMNS.length;
-			if (columnIndex < 0 || columnIndex >= numColumns) {
-				throw new IllegalArgumentException("Invalid column index "
-						+ columnIndex + ", " + numColumns + " columns exist");
-			}
-			return COLUMNS[columnIndex];
-		}
-
-		@Override
-		public String[] getColumnNames() {
-			String[] returnColumns = new String[COLUMNS.length];
-			System.arraycopy(COLUMNS, 0, returnColumns, 0, COLUMNS.length);
-			return returnColumns;
-		}
-
-		@Override
-		public int getColumnCount() {
-			return COLUMNS.length;
-		}
-
-		@Override
-		public byte[] getBlob(int columnIndex) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public double getDouble(int columnIndex) {
-			return getLong(columnIndex);
-		}
-
-		private boolean isLongColumn(String column) {
-			return LONG_COLUMNS.contains(column);
-		}
-
-		@Override
-		public float getFloat(int columnIndex) {
-			return (float) getDouble(columnIndex);
+			
+			mBaseUri = baseUri;
 		}
 
 		@Override
@@ -1205,85 +1229,45 @@ public class DownloadManager {
 
 		@Override
 		public long getLong(int columnIndex) {
-			return translateLong(getColumnName(columnIndex));
-		}
-
-		@Override
-		public short getShort(int columnIndex) {
-			return (short) getLong(columnIndex);
+			if (getColumnName(columnIndex).equals(COLUMN_REASON)) {
+				return getReason(super
+						.getInt(getColumnIndex(Downloads.COLUMN_STATUS)));
+			} else if (getColumnName(columnIndex).equals(COLUMN_STATUS)) {
+				return translateStatus(super
+						.getInt(getColumnIndex(Downloads.COLUMN_STATUS)));
+			} else {
+				return super.getLong(columnIndex);
+			}
 		}
 
 		@Override
 		public String getString(int columnIndex) {
-			return translateString(getColumnName(columnIndex));
-		}
-
-		private String translateString(String column) {
-			if (isLongColumn(column)) {
-				return Long.toString(translateLong(column));
-			}
-			if (column.equals(COLUMN_TITLE)) {
-				return getUnderlyingString(Downloads.COLUMN_TITLE);
-			}
-			if (column.equals(COLUMN_DESCRIPTION)) {
-				return getUnderlyingString(Downloads.COLUMN_DESCRIPTION);
-			}
-			if (column.equals(COLUMN_URI)) {
-				return getUnderlyingString(Downloads.COLUMN_URI);
-			}
-			if (column.equals(COLUMN_MEDIA_TYPE)) {
-				return getUnderlyingString(Downloads.COLUMN_MIME_TYPE);
-			}
-
-			assert column.equals(COLUMN_LOCAL_URI);
-			return getLocalUri();
+			return (getColumnName(columnIndex).equals(COLUMN_LOCAL_URI)) ? getLocalUri()
+					: super.getString(columnIndex);
 		}
 
 		private String getLocalUri() {
-			String localPath = getUnderlyingString(Downloads._DATA);
-			if (localPath == null) {
-				return null;
+			long destinationType = getLong(getColumnIndex(Downloads.COLUMN_DESTINATION));
+			if (destinationType == Downloads.DESTINATION_FILE_URI
+					|| destinationType == Downloads.DESTINATION_EXTERNAL
+					|| destinationType == Downloads.DESTINATION_NON_DOWNLOADMANAGER_DOWNLOAD) {
+				String localPath = getString(getColumnIndex(COLUMN_LOCAL_FILENAME));
+				if (localPath == null) {
+					return null;
+				}
+				return Uri.fromFile(new File(localPath)).toString();
 			}
-			return Uri.fromFile(new File(localPath)).toString();
-		}
-
-		private long translateLong(String column) {
-			if (!isLongColumn(column)) {
-				// mimic behavior of underlying cursor -- most likely, throw
-				// NumberFormatException
-				return Long.valueOf(translateString(column));
-			}
-
-			if (column.equals(COLUMN_ID)) {
-				return getUnderlyingLong(Downloads._ID);
-			}
-			if (column.equals(COLUMN_TOTAL_SIZE_BYTES)) {
-				return getUnderlyingLong(Downloads.COLUMN_TOTAL_BYTES);
-			}
-			if(column.equals(COLUMN_SPEED)){
-				return getUnderlyingLong(Downloads.COLUMN_SPEED);
-			}
-			if (column.equals(COLUMN_STATUS)) {
-				return translateStatus((int) getUnderlyingLong(Downloads.COLUMN_STATUS));
-			}
-			if (column.equals(COLUMN_REASON)) {
-				return getReason((int) getUnderlyingLong(Downloads.COLUMN_STATUS));
-			}
-			if (column.equals(COLUMN_BYTES_DOWNLOADED_SO_FAR)) {
-				return getUnderlyingLong(Downloads.COLUMN_CURRENT_BYTES);
-			}
-			assert column.equals(COLUMN_LAST_MODIFIED_TIMESTAMP);
-			return getUnderlyingLong(Downloads.COLUMN_LAST_MODIFICATION);
+			// return content URI for cache download
+			long downloadId = getLong(getColumnIndex(Downloads._ID));
+			return ContentUris.withAppendedId(mBaseUri, downloadId).toString();
 		}
 
 		private long getReason(int status) {
 			switch (translateStatus(status)) {
 			case STATUS_FAILED:
 				return getErrorCode(status);
-
 			case STATUS_PAUSED:
 				return getPausedReason(status);
-
 			default:
 				return 0; // arbitrary value when status is not an error
 			}
@@ -1293,13 +1277,10 @@ public class DownloadManager {
 			switch (status) {
 			case Downloads.STATUS_WAITING_TO_RETRY:
 				return PAUSED_WAITING_TO_RETRY;
-
 			case Downloads.STATUS_WAITING_FOR_NETWORK:
 				return PAUSED_WAITING_FOR_NETWORK;
-
 			case Downloads.STATUS_QUEUED_FOR_WIFI:
 				return PAUSED_QUEUED_FOR_WIFI;
-
 			default:
 				return PAUSED_UNKNOWN;
 			}
@@ -1311,63 +1292,42 @@ public class DownloadManager {
 				// HTTP status code
 				return status;
 			}
-
 			switch (status) {
 			case Downloads.STATUS_FILE_ERROR:
 				return ERROR_FILE_ERROR;
-
 			case Downloads.STATUS_UNHANDLED_HTTP_CODE:
 			case Downloads.STATUS_UNHANDLED_REDIRECT:
 				return ERROR_UNHANDLED_HTTP_CODE;
-
 			case Downloads.STATUS_HTTP_DATA_ERROR:
 				return ERROR_HTTP_DATA_ERROR;
-
 			case Downloads.STATUS_TOO_MANY_REDIRECTS:
 				return ERROR_TOO_MANY_REDIRECTS;
-
 			case Downloads.STATUS_INSUFFICIENT_SPACE_ERROR:
 				return ERROR_INSUFFICIENT_SPACE;
-
 			case Downloads.STATUS_DEVICE_NOT_FOUND_ERROR:
 				return ERROR_DEVICE_NOT_FOUND;
-
 			case Downloads.STATUS_CANNOT_RESUME:
 				return ERROR_CANNOT_RESUME;
-
 			case Downloads.STATUS_FILE_ALREADY_EXISTS_ERROR:
 				return ERROR_FILE_ALREADY_EXISTS;
-
 			default:
 				return ERROR_UNKNOWN;
 			}
-		}
-
-		private long getUnderlyingLong(String column) {
-			return super.getLong(super.getColumnIndex(column));
-		}
-
-		private String getUnderlyingString(String column) {
-			return super.getString(super.getColumnIndex(column));
 		}
 
 		private int translateStatus(int status) {
 			switch (status) {
 			case Downloads.STATUS_PENDING:
 				return STATUS_PENDING;
-
 			case Downloads.STATUS_RUNNING:
 				return STATUS_RUNNING;
-
 			case Downloads.STATUS_PAUSED_BY_APP:
 			case Downloads.STATUS_WAITING_TO_RETRY:
 			case Downloads.STATUS_WAITING_FOR_NETWORK:
 			case Downloads.STATUS_QUEUED_FOR_WIFI:
 				return STATUS_PAUSED;
-
 			case Downloads.STATUS_SUCCESS:
 				return STATUS_SUCCESSFUL;
-
 			default:
 				assert Downloads.isStatusError(status);
 				return STATUS_FAILED;

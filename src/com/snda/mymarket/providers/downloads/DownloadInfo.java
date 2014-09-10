@@ -36,6 +36,7 @@ import android.util.Log;
 import android.util.Pair;
 
 import com.snda.mymarket.providers.DownloadManager;
+import com.snda.mymarket.providers.DownloadManager.Request;
 
 /**
  * Stores information about an individual download.
@@ -253,7 +254,7 @@ public class DownloadInfo {
         return Collections.unmodifiableList(mRequestHeaders);
     }
 
-    public void sendIntentIfRequested() {
+    public void sendIntentIfRequested( int status ) {
         if (mPackage == null) {
             return;
         }
@@ -263,6 +264,7 @@ public class DownloadInfo {
             intent = new Intent(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
             intent.setPackage(mPackage);
             intent.putExtra(DownloadManager.EXTRA_DOWNLOAD_ID, mId);
+            intent.putExtra(DownloadManager.EXTRA_DOWNLOAD_STATUS, status);
         } else { // legacy behavior
             if (mClass == null) {
                 return;
@@ -272,6 +274,7 @@ public class DownloadInfo {
             if (mExtras != null) {
                 intent.putExtra(Downloads.COLUMN_NOTIFICATION_EXTRAS, mExtras);
             }
+            intent.putExtra(DownloadManager.EXTRA_DOWNLOAD_STATUS, status);
             // We only send the content: URI, for security reasons. Otherwise, malicious
             //     applications would have an easier time spoofing download results by
             //     sending spoofed intents.
@@ -338,7 +341,7 @@ public class DownloadInfo {
         if (!Downloads.isStatusCompleted(mStatus)) {
             return false;
         }
-        if (mVisibility == Downloads.VISIBILITY_VISIBLE_NOTIFY_COMPLETED) {
+        if (mVisibility == Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED) {
             return true;
         }
         return false;

@@ -15,16 +15,14 @@
  */
 package com.snda.mymarket.providers.downloads;
 
-import static android.app.DownloadManager.Request.VISIBILITY_VISIBLE;
-import static android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED;
-import static android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import android.annotation.SuppressLint;
+
 import android.app.DownloadManager;
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -35,9 +33,14 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.net.Uri;
 import android.os.SystemClock;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.util.LongSparseArray;
 import android.text.TextUtils;
 import android.util.Log;
+import android.util.SparseArray;
+
 import com.snda.mymarket.downloadprovider.R;
+import com.snda.mymarket.providers.DownloadManager.Request;
 
 /**
  * Update {@link NotificationManager} to reflect current {@link DownloadInfo}
@@ -63,13 +66,13 @@ public class DownloadNotifier {
 	 * to speed in bytes per second.
 	 */
 	// @GuardedBy("mDownloadSpeed")
-	private final HashMap<Long, Long> mDownloadSpeed = new HashMap<Long, Long>();
+	private final LongSparseArray<Long> mDownloadSpeed = new LongSparseArray<Long>();
 	/**
 	 * Last time speed was reproted, mapped from {@link DownloadInfo#mId} to
 	 * {@link SystemClock#elapsedRealtime()}.
 	 */
 	// @GuardedBy("mDownloadSpeed")
-	private final HashMap<Long, Long> mDownloadTouch = new HashMap<Long, Long>();
+	private final LongSparseArray<Long> mDownloadTouch = new LongSparseArray<Long>();
 
 	public DownloadNotifier(Context context) {
 		mContext = context;
@@ -107,7 +110,6 @@ public class DownloadNotifier {
 		}
 	}
 
-	@SuppressLint("NewApi")
 	private void updateWithLocked(Collection<DownloadInfo> downloads) {
 		final Resources res = mContext.getResources();
 		// Cluster downloads together
@@ -127,7 +129,7 @@ public class DownloadNotifier {
 		for (String tag : clustered.keySet()) {
 			final int type = getNotificationTagType(tag);
 			final Collection<DownloadInfo> cluster = clustered.get(tag);
-			final Notification.Builder builder = new Notification.Builder(
+			final NotificationCompat.Builder builder = new NotificationCompat.Builder(
 					mContext);
 			// Use time when cluster was first shown to avoid shuffling
 			final long firstShown;
@@ -168,12 +170,12 @@ public class DownloadNotifier {
 				if (Downloads.isStatusError(info.mStatus)) {
 					action = Constants.ACTION_LIST;
 				} else {
-					// if (info.mDestination !=
-					// Downloads.DESTINATION_SYSTEMCACHE_PARTITION) {
-					// action = Constants.ACTION_OPEN;
-					// } else {
-					action = Constants.ACTION_LIST;
-					// }
+					if (info.mDestination !=
+					   Downloads.DESTINATION_SYSTEMCACHE_PARTITION) {
+					   action = Constants.ACTION_OPEN;
+					} else {
+					   action = Constants.ACTION_LIST;
+					}
 				}
 				final Intent intent = new Intent(action, uri, mContext,
 						DownloadReceiver.class);
@@ -245,7 +247,7 @@ public class DownloadNotifier {
 				}
 				notif = builder.build();
 			} else {
-				final Notification.InboxStyle inboxStyle = new Notification.InboxStyle(
+				final NotificationCompat.InboxStyle inboxStyle = new NotificationCompat.InboxStyle(
 						builder);
 				for (DownloadInfo info : cluster) {
 					inboxStyle.addLine(getDownloadTitle(res, info));
@@ -302,14 +304,12 @@ public class DownloadNotifier {
 
 	public void dumpSpeeds() {
 		synchronized (mDownloadSpeed) {
-			while (mDownloadSpeed.entrySet().iterator().hasNext()) {
-				final Entry<Long, Long> iter = mDownloadSpeed.entrySet()
-						.iterator().next();
-				final long id = iter.getKey();
+			for ( int i=0; i<mDownloadSpeed.size(); i++) {
+				final long id = mDownloadSpeed.keyAt(i);
 				final long delta = SystemClock.elapsedRealtime()
 						- mDownloadTouch.get(id);
 				Log.d(Constants.TAG,
-						"Download " + id + " speed " + iter.getValue()
+						"Download " + id + " speed " + mDownloadSpeed.valueAt(i)
 								+ "bps, " + delta + "ms ago");
 			}
 		}
@@ -342,11 +342,11 @@ public class DownloadNotifier {
 
 	private static boolean isActiveAndVisible(DownloadInfo download) {
 		return download.mStatus == Downloads.STATUS_RUNNING
-				&& (download.mVisibility == VISIBILITY_VISIBLE || download.mVisibility == VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+				&& (download.mVisibility == Request.VISIBILITY_VISIBLE || download.mVisibility == Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
 	}
 
 	private static boolean isCompleteAndVisible(DownloadInfo download) {
 		return Downloads.isStatusCompleted(download.mStatus)
-				&& (download.mVisibility == VISIBILITY_VISIBLE_NOTIFY_COMPLETED || download.mVisibility == VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION);
+				&& (download.mVisibility == Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED || download.mVisibility == Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION);
 	}
 }

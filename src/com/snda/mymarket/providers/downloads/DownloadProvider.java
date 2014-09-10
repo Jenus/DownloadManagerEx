@@ -24,6 +24,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import com.snda.mymarket.providers.DownloadManager.Request;
+
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -502,10 +504,10 @@ public final class DownloadProvider extends ContentProvider {
 		if (vis == null) {
 			if (dest == Downloads.DESTINATION_EXTERNAL) {
 				filteredValues.put(Downloads.COLUMN_VISIBILITY,
-						Downloads.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+						Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
 			} else {
 				filteredValues.put(Downloads.COLUMN_VISIBILITY,
-						Downloads.VISIBILITY_HIDDEN);
+						Request.VISIBILITY_HIDDEN);
 			}
 		} else {
 			filteredValues.put(Downloads.COLUMN_VISIBILITY, vis);
@@ -654,10 +656,14 @@ public final class DownloadProvider extends ContentProvider {
 		if (getContext().checkCallingOrSelfPermission(
 				Downloads.PERMISSION_NO_NOTIFICATION) == PackageManager.PERMISSION_GRANTED) {
 			enforceAllowedValues(values, Downloads.COLUMN_VISIBILITY,
-					Downloads.VISIBILITY_HIDDEN, Downloads.VISIBILITY_VISIBLE);
+					Request.VISIBILITY_HIDDEN, Request.VISIBILITY_VISIBLE,
+					Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED,
+					Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION);
 		} else {
 			enforceAllowedValues(values, Downloads.COLUMN_VISIBILITY,
-					Downloads.VISIBILITY_VISIBLE);
+					Request.VISIBILITY_VISIBLE,
+					Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED,
+					Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION);
 		}
 
 		// remove the rest of the columns that are allowed (with any value)

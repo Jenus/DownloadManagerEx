@@ -7,8 +7,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import android.app.Notification;
-import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -21,11 +19,8 @@ class RealSystemFacade implements SystemFacade {
 	
 	private static final int CORE_POOL_SIZE = Constants.CORE_POOL_SIZE;
 	private static final int MAXIMUM_POOL_SIZE = Constants.MAXIMUM_POOL_SIZE;
-	private static final int KEEP_ALIVE = Constants.KEEP_ALIVE;
 	
 	private Context mContext;
-	
-	private NotificationManager mNotificationManager;
 	
 	// 2 GB
 	private static final long DOWNLOAD_MAX_BYTES_OVER_MOBILE = 2 * 1024 * 1024 * 1024L;
@@ -46,8 +41,6 @@ class RealSystemFacade implements SystemFacade {
 
 	public RealSystemFacade(Context context) {
 		mContext = context;
-		mNotificationManager = (NotificationManager) mContext
-				.getSystemService(Context.NOTIFICATION_SERVICE);
 	}
 
 	public long currentTimeMillis() {
