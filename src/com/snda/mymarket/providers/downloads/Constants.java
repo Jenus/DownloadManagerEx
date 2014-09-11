@@ -16,7 +16,6 @@
 
 package com.snda.mymarket.providers.downloads;
 
-import android.os.Environment;
 import android.util.Config;
 import android.util.Log;
 
@@ -105,6 +104,11 @@ public class Constants {
 
     /** The column that is used for the initiating app's UID */
     public static final String UID = "uid";
+    
+    /**
+	 * The column that is used to remember whether the media scanner was invoked
+	 */
+	public static final String MEDIA_SCANNED = "scanned";
 
     /** The column that is used to count retries */
     public static final String FAILED_CONNECTIONS = "numfailed";
@@ -200,13 +204,13 @@ public class Constants {
     static final boolean LOGX = false;
 
     /** Enable verbose logging - use with "setprop log.tag.DownloadManager VERBOSE" */
-    private static final boolean LOCAL_LOGV = true;
+    private static final boolean LOCAL_LOGV = false;
     @SuppressWarnings("unused")
     public static final boolean LOGV = Config.LOGV
             || (Config.LOGD && LOCAL_LOGV && Log.isLoggable(TAG, Log.INFO));
 
     /** Enable super-verbose logging */
-    private static final boolean LOCAL_LOGVV = true;
+    private static final boolean LOCAL_LOGVV = false;
     @SuppressWarnings("unused")
     public static final boolean LOGVV = LOCAL_LOGVV && LOGV;
 //    public static final boolean LOGVV = BuildConfig.DEBUG;

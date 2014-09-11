@@ -34,11 +34,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.ContentObserver;
 import android.database.Cursor;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Process;
+import android.support.v4.util.LongSparseArray;
+import android.text.TextUtils;
 import android.util.Log;
 
 /**
@@ -85,6 +88,8 @@ public class DownloadService extends Service {
 
 	/** Class to handle Notification Manager updates */
 	private DownloadNotifier mNotifier;
+	
+	private DownloadScanner mScanner;
 
 	/**
 	 * The Service's view of the list of downloads, mapping download IDs to the
@@ -93,7 +98,7 @@ public class DownloadService extends Service {
 	 * that it can deal with situation where the data in the content provider
 	 * changes or disappears.
 	 */
-	private Map<Long, DownloadInfo> mDownloads = new HashMap<Long, DownloadInfo>();
+	private LongSparseArray<DownloadInfo> mDownloads = new LongSparseArray<DownloadInfo>();
 
 	/**
 	 * The thread that updates the internal download list from the content
@@ -161,6 +166,8 @@ public class DownloadService extends Service {
 		mNotifier = new DownloadNotifier(this);
 		mNotifier.cancelAll();
 		
+		mScanner = new DownloadScanner(this);
+		
 		mUpdateThread = new HandlerThread(Constants.TAG + "-UpdateThread");
 		mUpdateThread.start();
 		mUpdateHandler = new Handler(mUpdateThread.getLooper(), mUpdateCallback);
@@ -184,13 +191,8 @@ public class DownloadService extends Service {
 					if ( intent.getExtras().getBoolean(EXTRA_IS_PAUSE_ALL)) {
 						mSystemFacade.clearThreadPool();
 		
-						Iterator<?> iter = mDownloads.entrySet().iterator();
-						while (iter.hasNext()) {
-							Map.Entry<?, ?> entry = (Map.Entry<?, ?>) iter.next();
-							Object obj = entry.getValue();
-							if (obj instanceof DownloadInfo) {
-								((DownloadInfo) obj).cancelTask();
-							}
+						for ( int i=0; i< mDownloads.size(); i++ ){
+							mDownloads.valueAt(i).cancelTask();
 						}
 						return returnValue;
 					}
@@ -207,6 +209,8 @@ public class DownloadService extends Service {
 	 */
 	public void onDestroy() {
 		getContentResolver().unregisterContentObserver(mObserver);
+		mScanner.shutdown();
+		mUpdateThread.quit();
 		if (Constants.LOGVV) {
 			Log.v(Constants.TAG, "Service onDestroy");
 		}
@@ -277,6 +281,7 @@ public class DownloadService extends Service {
 					if (DEBUG_LIFECYCLE)
 						Log.v(Constants.TAG, "Nothing left; stopped");
 					getContentResolver().unregisterContentObserver(mObserver);
+					mScanner.shutdown();
 					mUpdateThread.quit();
 				}
 			}
@@ -300,7 +305,7 @@ public class DownloadService extends Service {
 		final long now = mSystemFacade.currentTimeMillis();
 		boolean isActive = false;
 		long nextActionMillis = Long.MAX_VALUE;
-		final Set<Long> staleIds = new HashSet<Long>(mDownloads.keySet());
+		final Set<Long> staleIds = new HashSet<Long>(mDownloads.size());
 		final ContentResolver resolver = getContentResolver();
 		final Cursor cursor = resolver.query(
 				Downloads.ALL_DOWNLOADS_CONTENT_URI, null, null, null,
@@ -320,16 +325,23 @@ public class DownloadService extends Service {
 					info = insertDownloadLocked(reader, now);
 				}
 				if (info.mDeleted) {
+					// Delete download if requested, but only after cleaning up
+					if (!TextUtils.isEmpty(info.mMediaProviderUri)) {
+						resolver.delete(Uri.parse(info.mMediaProviderUri),
+								null, null);
+					}
 					Helpers.deleteFile(getContentResolver(), info.mId,
 							info.mFileName, info.mMimeType);
 				} else {
 					// Kick off download task if ready
 					final boolean activeDownload = info.startIfReady( this.mNotifier );
-					if (DEBUG_LIFECYCLE && activeDownload ) {
+					final boolean activeScan = info.startScanIfReady(mScanner);
+					if (DEBUG_LIFECYCLE && (activeDownload || activeScan) ) {
 						Log.v(Constants.TAG, "Download " + info.mId + ": activeDownload="
-								+ activeDownload);
+								+ activeDownload + ", activeScan=" + activeScan);
 					}
 					isActive |= activeDownload;
+					isActive |= activeScan;
 				}
 				// Keep track of nearest next action
 				nextActionMillis = Math.min(info.nextActionMillis(now),
@@ -343,7 +355,7 @@ public class DownloadService extends Service {
 			deleteDownloadLocked(id);
 		}
 		// Update notifications visible to user
-		mNotifier.updateWith(mDownloads.values());
+		mNotifier.updateWith(mDownloads);
 		// Set alarm when next action is in future. It's okay if the service
 		// continues to run in meantime, since it will kick off an update pass.
 		if (nextActionMillis > 0 && nextActionMillis < Long.MAX_VALUE) {

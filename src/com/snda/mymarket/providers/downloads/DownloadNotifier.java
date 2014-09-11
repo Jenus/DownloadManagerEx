@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import android.app.DownloadManager;
 import android.app.Notification;
@@ -37,7 +36,6 @@ import android.support.v4.app.NotificationCompat;
 import android.support.v4.util.LongSparseArray;
 import android.text.TextUtils;
 import android.util.Log;
-import android.util.SparseArray;
 
 import com.snda.mymarket.downloadprovider.R;
 import com.snda.mymarket.providers.DownloadManager.Request;
@@ -104,25 +102,25 @@ public class DownloadNotifier {
 	 * Update {@link NotificationManager} to reflect the given set of
 	 * {@link DownloadInfo}, adding, collapsing, and removing as needed.
 	 */
-	public void updateWith(Collection<DownloadInfo> downloads) {
+	public void updateWith(LongSparseArray<DownloadInfo> downloads) {
 		synchronized (mActiveNotifs) {
 			updateWithLocked(downloads);
 		}
 	}
 
-	private void updateWithLocked(Collection<DownloadInfo> downloads) {
+	private void updateWithLocked(LongSparseArray<DownloadInfo> downloads) {
 		final Resources res = mContext.getResources();
 		// Cluster downloads together
 		final Map<String, Collection<DownloadInfo>> clustered = new HashMap<String, Collection<DownloadInfo>>();
-		for (DownloadInfo info : downloads) {
-			final String tag = buildNotificationTag(info);
+		for (int index =0; index < downloads.size(); index++) {
+			final String tag = buildNotificationTag(downloads.valueAt(index));
 			if (tag != null) {
 				Collection<DownloadInfo> arrDownloads = clustered.get(tag);
 				if (arrDownloads == null) {
 					arrDownloads = new ArrayList<DownloadInfo>();
 					clustered.put(tag, arrDownloads);
 				}
-				arrDownloads.add(info);
+				arrDownloads.add(downloads.valueAt(index));
 			}
 		}
 		// Build notification for each cluster

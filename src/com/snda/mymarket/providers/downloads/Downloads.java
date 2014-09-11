@@ -515,7 +515,27 @@ public final class Downloads implements BaseColumns {
 	 * @hide
 	 */
 	public static final String COLUMN_DELETED = "deleted";
-
+	/**
+	 * The URI to the corresponding entry in MediaProvider for this downloaded
+	 * entry. It is used to delete the entries from MediaProvider database when
+	 * it is deleted from the downloaded list.
+	 * <P>
+	 * Type: TEXT
+	 * </P>
+	 * <P>
+	 * Owner can Read
+	 * </P>
+	 */
+	public static final String COLUMN_MEDIAPROVIDER_URI = "mediaprovider_uri";
+	/**
+	 * The column that is used to remember whether the media scanner was
+	 * invoked. It can take the values: null or 0(not scanned), 1(scanned), 2
+	 * (not scannable).
+	 * <P>
+	 * Type: TEXT
+	 * </P>
+	 */
+	public static final String COLUMN_MEDIA_SCANNED = "scanned";
 	/*
 	 * Lists the destinations that an application can specify for a download.
 	 */

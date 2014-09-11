@@ -24,8 +24,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import com.snda.mymarket.providers.DownloadManager.Request;
-
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -46,6 +44,8 @@ import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.util.Log;
+
+import com.snda.mymarket.providers.DownloadManager.Request;
 
 /**
  * Allows application to interact with the download manager.
@@ -114,7 +114,10 @@ public final class DownloadProvider extends ContentProvider {
 			Downloads.COLUMN_CURRENT_BYTES, Downloads.COLUMN_TITLE,
 			Downloads.COLUMN_DESCRIPTION, Downloads.COLUMN_URI,
 			Downloads.COLUMN_IS_VISIBLE_IN_DOWNLOADS_UI,
-			Downloads.COLUMN_FILE_NAME_HINT, Downloads.COLUMN_DELETED, };
+			Downloads.COLUMN_FILE_NAME_HINT, 
+			Downloads.COLUMN_MEDIAPROVIDER_URI,
+			Downloads.COLUMN_DELETED,
+			Downloads.COLUMN_SPEED,};
 
 	private static HashSet<String> sAppReadableColumnsSet;
 	static {
@@ -294,6 +297,7 @@ public final class DownloadProvider extends ContentProvider {
 				break;
 
 			case 106:
+				addColumn(db, DB_TABLE, Downloads.COLUMN_MEDIAPROVIDER_URI, "TEXT");
 				addColumn(db, DB_TABLE, Downloads.COLUMN_DELETED,
 						"BOOLEAN NOT NULL DEFAULT 0");
 				break;
@@ -394,7 +398,8 @@ public final class DownloadProvider extends ContentProvider {
 						+ Constants.ETAG + " TEXT, " + Constants.UID
 						+ " INTEGER, " + Downloads.COLUMN_OTHER_UID
 						+ " INTEGER, " + Downloads.COLUMN_TITLE + " TEXT, "
-						+ Downloads.COLUMN_DESCRIPTION + " TEXT); ");
+						+ Downloads.COLUMN_DESCRIPTION + " TEXT, " 
+						+ Constants.MEDIA_SCANNED + " BOOLEAN);");
 			} catch (SQLException ex) {
 				Log.e(Constants.TAG,
 						"couldn't create table in downloads database");
@@ -513,7 +518,28 @@ public final class DownloadProvider extends ContentProvider {
 			filteredValues.put(Downloads.COLUMN_VISIBILITY, vis);
 		}
 		copyInteger(Downloads.COLUMN_CONTROL, values, filteredValues);
-		filteredValues.put(Downloads.COLUMN_STATUS, Downloads.STATUS_PENDING);
+		/*
+		 * requests coming from DownloadManager.addCompletedDownload(String,
+		 * String, String, boolean, String, String, long) need special treatment
+		 */
+		if (values.getAsInteger(Downloads.COLUMN_DESTINATION) == Downloads.DESTINATION_NON_DOWNLOADMANAGER_DOWNLOAD) {
+			// these requests always are marked as 'completed'
+			filteredValues.put(Downloads.COLUMN_STATUS,
+					Downloads.STATUS_SUCCESS);
+			filteredValues.put(Downloads.COLUMN_TOTAL_BYTES,
+					values.getAsLong(Downloads.COLUMN_TOTAL_BYTES));
+			filteredValues.put(Downloads.COLUMN_CURRENT_BYTES, 0);
+			copyInteger(Downloads.COLUMN_MEDIA_SCANNED, values,
+					filteredValues);
+			copyString(Downloads._DATA, values, filteredValues);
+			//copyBoolean(Downloads.COLUMN_ALLOW_WRITE, values,
+			//		filteredValues);
+		} else {
+			filteredValues.put(Downloads.COLUMN_STATUS,
+					Downloads.STATUS_PENDING);
+			filteredValues.put(Downloads.COLUMN_TOTAL_BYTES, -1);
+			filteredValues.put(Downloads.COLUMN_CURRENT_BYTES, 0);
+		}
 		filteredValues.put(Downloads.COLUMN_LAST_MODIFICATION,
 				mSystemFacade.currentTimeMillis());
 
@@ -674,14 +700,12 @@ public final class DownloadProvider extends ContentProvider {
 		
 		values.remove(Downloads.COLUMN_DESCRIPTION);
 		values.remove(Downloads.COLUMN_MIME_TYPE);
-		values.remove(Downloads.COLUMN_FILE_NAME_HINT); // checked later in
-		// insert()
-		values.remove(Downloads.COLUMN_NOTIFICATION_PACKAGE); // checked
-		// later in
-		// insert()
+		values.remove(Downloads.COLUMN_FILE_NAME_HINT); // checked later in insert()
+		values.remove(Downloads.COLUMN_NOTIFICATION_PACKAGE); // checked later in insert()
 		values.remove(Downloads.COLUMN_ALLOWED_NETWORK_TYPES);
 		values.remove(Downloads.COLUMN_ALLOW_ROAMING);
 		values.remove(Downloads.COLUMN_IS_VISIBLE_IN_DOWNLOADS_UI);
+		values.remove(Downloads.COLUMN_MEDIA_SCANNED);
 		Iterator<Map.Entry<String, Object>> iterator = values.valueSet()
 				.iterator();
 		while (iterator.hasNext()) {
@@ -932,6 +956,9 @@ public final class DownloadProvider extends ContentProvider {
 			copyInteger(Downloads.COLUMN_CONTROL, values, filteredValues);
 			copyString(Downloads.COLUMN_TITLE, values, filteredValues);
 			copyString(Downloads.COLUMN_DESCRIPTION, values, filteredValues);
+			copyString(Downloads.COLUMN_MEDIAPROVIDER_URI, values,
+					filteredValues);
+			copyInteger(Downloads.COLUMN_MEDIA_SCANNED, values, filteredValues);
 			copyInteger(Downloads.COLUMN_DELETED, values, filteredValues);
 		} else {
 			filteredValues = values;

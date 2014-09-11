@@ -308,7 +308,7 @@ public class DownloadManager {
 	public static final String[] UNDERLYING_COLUMNS = new String[] {
 			Downloads._ID,
 			Downloads._DATA + " AS " + COLUMN_LOCAL_FILENAME,
-			//Downloads.COLUMN_MEDIAPROVIDER_URI,
+			Downloads.COLUMN_MEDIAPROVIDER_URI,
 			Downloads.COLUMN_DESTINATION,
 			Downloads.COLUMN_TITLE,
 			Downloads.COLUMN_DESCRIPTION,
@@ -395,6 +395,23 @@ public class DownloadManager {
 		private int mAllowedNetworkTypes = ~0; // default to all network types
 		// allowed
 		private boolean mIsVisibleInDownloadsUi = true;
+		private boolean mScannable = false;
+		
+		/**
+		 * if a file is designated as a MediaScanner scannable file, the
+		 * following value is stored in the database column
+		 * {@link Downloads.Impl#COLUMN_MEDIA_SCANNED}.
+		 */
+		private static final int SCANNABLE_VALUE_YES = 0;
+		// value of 1 is stored in the above column by DownloadProvider after it
+		// is scanned by
+		// MediaScanner
+		/**
+		 * if a file is designated as a file that should not be scanned by
+		 * MediaScanner, the following value is stored in the database column
+		 * {@link Downloads.Impl#COLUMN_MEDIA_SCANNED}.
+		 */
+		private static final int SCANNABLE_VALUE_NO = 2;
 
 		/**
 		 * @param uri
@@ -586,6 +603,14 @@ public class DownloadManager {
 		    return this;
 		}
 
+		/**
+		 * If the file to be downloaded is to be scanned by MediaScanner, this
+		 * method should be called before
+		 * {@link DownloadManager#enqueue(Request)} is called.
+		 */
+		public void allowScanningByMediaScanner() {
+			mScannable = true;
+		}
 
 		/**
 		 * Restrict the types of networks over which this download may proceed.
@@ -663,7 +688,8 @@ public class DownloadManager {
 					mIsVisibleInDownloadsUi);
 
 			values.put(Downloads.COLUMN_NO_INTEGRITY, true);
-
+			values.put(Downloads.COLUMN_MEDIA_SCANNED,
+					(mScannable) ? SCANNABLE_VALUE_YES : SCANNABLE_VALUE_NO);
 			return values;
 		}
 

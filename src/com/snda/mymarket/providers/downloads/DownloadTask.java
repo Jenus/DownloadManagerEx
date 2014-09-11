@@ -411,7 +411,8 @@ public class DownloadTask implements Runnable {
 						"download paused by owner");
 			}
 		}
-		if (mInfo.mStatus == Downloads.STATUS_CANCELED) {
+		if (mInfo.mStatus == Downloads.STATUS_CANCELED
+				|| mInfo.mDeleted ) {
 			throw new StopRequest(Downloads.STATUS_CANCELED,
 					"download canceled");
 		}

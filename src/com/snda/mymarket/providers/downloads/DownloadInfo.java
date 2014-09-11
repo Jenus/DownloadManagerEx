@@ -67,6 +67,9 @@ public class DownloadInfo {
             info.mHint = getString(info.mHint, Downloads.COLUMN_FILE_NAME_HINT);
             info.mFileName = getString(info.mFileName, Downloads._DATA);
             info.mMimeType = getString(info.mMimeType, Downloads.COLUMN_MIME_TYPE);
+            info.mMediaScanned = getInt(Constants.MEDIA_SCANNED);
+            info.mDeleted = getInt(Downloads.COLUMN_DELETED) == 1;
+            info.mMediaProviderUri = getString(info.mMediaProviderUri, Downloads.COLUMN_MEDIAPROVIDER_URI);
             info.mDestination = getInt(Downloads.COLUMN_DESTINATION);
             info.mVisibility = getInt(Downloads.COLUMN_VISIBILITY);
             info.mStatus = getInt(Downloads.COLUMN_STATUS);
@@ -213,6 +216,7 @@ public class DownloadInfo {
     public String mHint;
     public String mFileName;
     public String mMimeType;
+    public int mMediaScanned;
     public int mDestination;
     public int mVisibility;
     public int mControl;
@@ -230,6 +234,7 @@ public class DownloadInfo {
     public long mCurrentBytes;
     public String mETag;
     public boolean mDeleted;
+    public String mMediaProviderUri;
     public boolean mIsPublicApi;
     public int mAllowedNetworkTypes;
     public boolean mAllowRoaming;
@@ -309,10 +314,8 @@ public class DownloadInfo {
 		}
 		switch (mStatus) {
 		case 0: // status hasn't been initialized yet, this is a new download
-		case Downloads.STATUS_PENDING: // download is explicit marked as
-											// ready to start
-		case Downloads.STATUS_RUNNING: // download interrupted (process
-											// killed etc) while
+		case Downloads.STATUS_PENDING: // download is explicit marked as ready to start
+		case Downloads.STATUS_RUNNING: // download interrupted (process killed etc) while
 			// running, without a chance to update the database
 			return true;
 		case Downloads.STATUS_WAITING_FOR_NETWORK:
@@ -472,6 +475,32 @@ public class DownloadInfo {
 			return isReady;
     	}
     }
+    
+    /**
+	 * If download is ready to be scanned, enqueue it into the given
+	 * {@link DownloadScanner}.
+	 * 
+	 * @return If actively scanning.
+	 */
+	public boolean startScanIfReady(DownloadScanner scanner) {
+		synchronized (this) {
+			final boolean isReady = shouldScanFile();
+			if (isReady) {
+				scanner.requestScan(this);
+			}
+			return isReady;
+		}
+	}
+	
+	/**
+	 * Returns whether a file should be scanned
+	 */
+	public boolean shouldScanFile() {
+		return (mMediaScanned == 0)
+				&& (mDestination == Downloads.DESTINATION_EXTERNAL
+						|| mDestination == Downloads.DESTINATION_FILE_URI || mDestination == Downloads.DESTINATION_NON_DOWNLOADMANAGER_DOWNLOAD)
+				&& Downloads.isStatusSuccess(mStatus);
+	}
     
     public void cancelTask() {
 		if ( this.mSubmittedTask != null ) {
